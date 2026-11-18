@@ -1,0 +1,46 @@
+name: Server usage report
+
+# Read-only: memory and disk used by each container and volume on the shared VPS.
+# Runs when started by hand, or when this file changes. Changes nothing on the server.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/server-report.yml']
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up SSH
+        env:
+          KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST || '193.123.83.82' }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$KEY" | tr -d '\r' > ~/.ssh/vps_key
+          chmod 600 ~/.ssh/vps_key
+          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Report
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST || '193.123.83.82' }}
+          VPS_USER: ${{ secrets.VPS_USER || 'ubuntu' }}
+        run: |
+          ssh -i ~/.ssh/vps_key "$VPS_USER@$VPS_HOST" '
+            echo "== memory (MB)"; free -m
+            echo "== memory by container (sorted)"
+            sudo docker stats --no-stream --format "{{.MemUsage}}\t{{.MemPerc}}\t{{.CPUPerc}}\t{{.Name}}" | sort -t"	" -k2 -rn
+            echo "== top processes by memory"
+            ps -eo rss,comm --sort=-rss | head -15 | awk "{printf \"%8.0f MB  %s\n\", \$1/1024, \$2}"
+            echo "== disk"; df -h /
+            echo "== docker disk"; sudo docker system df
+            echo "== volumes by size"
+            sudo docker system df -v 2>/dev/null | awk "/VOLUME NAME/{f=1;next} /^$/{f=0} f{print \$NF\"\t\"\$1}" | sort -h -r | head -25
+            echo "== container writable layers"
+            sudo docker ps -a --size --format "{{.Size}}\t{{.Names}}" | sort -h -r | head -15
+            echo "== largest folders under /home/ubuntu"
+            sudo du -xh --max-depth=1 /home/ubuntu 2>/dev/null | sort -h -r | head -15
+            echo "== logs"; sudo du -sh /var/lib/docker/containers /var/log 2>/dev/null
+            echo "== journal"; sudo journalctl --disk-usage 2>/dev/null
+          '

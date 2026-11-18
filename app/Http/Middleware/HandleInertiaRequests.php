@@ -60,6 +60,7 @@ class HandleInertiaRequests extends Middleware
                 'users' => Gate::allows('manage-users'),
                 'progression' => Gate::allows('view-progression'),
                 'reports' => Gate::allows('view-reports'),
+                'finance' => Gate::allows('view-finance'),
                 'offerings' => Gate::allows('manage-offerings'),
             ] : [],
             'unofficialPolicies' => fn () => $user ? AcademicPolicy::where('status', 'approved')->where('is_official', false)->exists() : false,
@@ -68,6 +69,7 @@ class HandleInertiaRequests extends Middleware
                 'error' => fn () => $request->session()->get('error'),
                 'problems' => fn () => $request->session()->get('problems'),
                 'created_order_id' => fn () => $request->session()->get('created_order_id'),
+                'receipt_id' => fn () => $request->session()->get('receipt_id'),
                 'credentials' => fn () => $request->session()->get('credentials'),
             ],
         ];

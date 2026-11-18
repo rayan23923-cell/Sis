@@ -20,10 +20,12 @@ class RoleAssignment extends Model
         'committee' => 'اللجنة الامتحانية',
         'teacher' => 'تدريسي',
         'auditor' => 'مدقق',
+        'accountant' => 'محاسب الجامعة',
+        'college_accountant' => 'محاسب الكلية',
     ];
 
     /** Roles that see the whole university regardless of college. */
-    public const UNIVERSITY_WIDE = ['super_admin', 'registrar', 'rules_admin', 'auditor'];
+    public const UNIVERSITY_WIDE = ['super_admin', 'registrar', 'rules_admin', 'auditor', 'accountant'];
 
     protected $fillable = ['user_id', 'role', 'college_id', 'department_id'];
 

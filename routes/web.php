@@ -4,6 +4,7 @@ use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\AuditController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentController;
+use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\ImportController;
 use App\Http\Controllers\OfferingAdminController;
 use App\Http\Controllers\OfferingController;
@@ -121,6 +122,22 @@ Route::middleware(['auth', 'active', 'password.changed', 'staff'])->group(functi
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
     Route::get('/reports/export', [ReportController::class, 'export'])->name('reports.export');
 
+    Route::controller(FinanceController::class)->prefix('finance')->name('finance.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/export', 'export')->name('export');
+        Route::post('/invoice-all', 'invoiceAll')->name('invoice-all');
+        Route::get('/schedules', 'schedules')->name('schedules');
+        Route::post('/schedules', 'storeSchedule')->name('schedules.store');
+        Route::put('/schedules/{schedule}', 'updateSchedule')->name('schedules.update');
+        Route::delete('/schedules/{schedule}', 'destroySchedule')->name('schedules.destroy');
+        Route::get('/students/{student}', 'student')->name('student');
+        Route::post('/students/{student}/invoice', 'invoiceStudent')->name('student.invoice');
+        Route::post('/invoices/{invoice}/pay', 'pay')->name('pay');
+        Route::post('/invoices/{invoice}/discount', 'discount')->name('discount');
+        Route::post('/invoices/{invoice}/cancel', 'cancel')->name('cancel');
+        Route::post('/payments/{payment}/void', 'void')->name('void');
+    });
+
     Route::post('/students/{student}/account', [StudentAccountController::class, 'issue'])->name('students.account');
     Route::post('/documents/{document}/revoke', [VerifyController::class, 'revoke'])->name('documents.revoke');
     Route::post('/student-accounts', [StudentAccountController::class, 'bulk'])->name('students.accounts.bulk');
@@ -134,6 +151,7 @@ Route::middleware(['auth', 'active', 'password.changed'])->group(function () {
     Route::get('/portal', [PortalController::class, 'home'])->name('portal.home');
     Route::get('/students/{student}/transcript.pdf', [DocumentController::class, 'transcript'])->name('students.transcript');
     Route::get('/students/{student}/graduation.pdf', [DocumentController::class, 'graduation'])->name('students.graduation');
+    Route::get('/finance/receipts/{payment}.pdf', [FinanceController::class, 'receipt'])->name('finance.receipt');
 });
 
 Route::middleware(['auth', 'active'])->get('/password/first', [PortalController::class, 'password'])->name('password.first');

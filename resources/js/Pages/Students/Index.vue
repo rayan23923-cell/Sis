@@ -12,7 +12,9 @@ import { MagnifyingGlassIcon, PlusIcon, UserGroupIcon, FunnelIcon, ArrowUpTrayIc
 
 const props = defineProps({ students: Object, filters: Object, colleges: Array, programs: Array, statuses: Object });
 const page = usePage();
-const f = reactive({ q: props.filters.q ?? '', college: props.filters.college ?? '', program: props.filters.program ?? '', status: props.filters.status ?? '', stage: props.filters.stage ?? '', shift: props.filters.shift ?? '' });
+// an empty filter set arrives as [] (whose .shift is Array.prototype.shift), so read from a plain object
+const fl = Array.isArray(props.filters) ? {} : props.filters;
+const f = reactive({ q: fl.q ?? '', college: fl.college ?? '', program: fl.program ?? '', status: fl.status ?? '', stage: fl.stage ?? '', shift: fl.shift ?? '' });
 const programs = computed(() => props.programs.filter((p) => !f.college || p.college_id == f.college));
 
 let t;

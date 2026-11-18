@@ -52,6 +52,11 @@ class Student extends Model
         return $this->hasMany(StudentStatusChange::class)->orderByDesc('effective_on')->orderByDesc('id');
     }
 
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(StudentInvoice::class)->latest('id');
+    }
+
     public function enrollments(): HasMany
     {
         return $this->hasMany(Enrollment::class);

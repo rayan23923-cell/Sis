@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Enrollment;
 use App\Models\Student;
+use App\Models\StudentInvoice;
 use App\Services\AttendanceService;
 use App\Services\Documents\TranscriptService;
 use Illuminate\Http\RedirectResponse;
@@ -49,6 +50,12 @@ class PortalController extends Controller
             'current' => $current,
             'years' => collect($t['years'])->reverse()->values(),
             'official' => $t['official'],
+            'fees' => StudentInvoice::where('student_id', $student->id)->where('status', '!=', 'cancelled')->with(['year:id,name', 'installments', 'payments'])->latest('id')->get()
+                ->map(fn (StudentInvoice $i) => [
+                    'id' => $i->id, 'year' => $i->year->name, 'net' => $i->net(), 'discount' => $i->discount, 'paid' => $i->paid(), 'balance' => $i->balance(),
+                    'status' => $i->status, 'lines' => $i->lines(),
+                    'payments' => $i->payments->whereNull('voided_at')->map(fn ($p) => ['id' => $p->id, 'receipt' => $p->receipt_number, 'amount' => $p->amount, 'paid_on' => $p->paid_on->toDateString()])->values(),
+                ]),
             'history' => $student->statusChanges->map(fn ($c) => [
                 'to' => Student::STATUSES[$c->to_status] ?? $c->to_status, 'on' => $c->effective_on?->toDateString(), 'order' => $c->order?->reference(), 'notes' => $c->notes,
             ]),

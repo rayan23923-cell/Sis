@@ -22,8 +22,8 @@ class UserController extends Controller
 {
     /** Which scope each role takes. */
     public const ROLE_SCOPE = [
-        'super_admin' => 'university', 'registrar' => 'university', 'rules_admin' => 'university', 'auditor' => 'university',
-        'dean' => 'college', 'college_registrar' => 'college', 'committee' => 'college',
+        'super_admin' => 'university', 'registrar' => 'university', 'rules_admin' => 'university', 'auditor' => 'university', 'accountant' => 'university',
+        'dean' => 'college', 'college_registrar' => 'college', 'committee' => 'college', 'college_accountant' => 'college',
         'head' => 'department', 'teacher' => 'department',
     ];
 

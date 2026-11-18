@@ -4,7 +4,7 @@ import { computed, ref } from 'vue';
 import { Head, Link, usePage } from '@inertiajs/vue3';
 import FlashToast from '@/Components/FlashToast.vue';
 import {
-    AcademicCapIcon, ChartBarIcon, ArrowRightOnRectangleIcon, Bars3Icon, BookOpenIcon, BuildingLibraryIcon,
+    AcademicCapIcon, BanknotesIcon, ChartBarIcon, ArrowRightOnRectangleIcon, Bars3Icon, BookOpenIcon, BuildingLibraryIcon,
     ClipboardDocumentCheckIcon, DocumentTextIcon, ExclamationTriangleIcon, HomeIcon, ScaleIcon,
     ShieldCheckIcon, UserCircleIcon, UsersIcon, XMarkIcon, ArrowTrendingUpIcon,
 } from '@heroicons/vue/24/outline';
@@ -25,6 +25,8 @@ const nav = computed(() => [
     { label: 'نتائج نهاية السنة', route: 'progression.index', match: 'progression.*', icon: ArrowTrendingUpIcon, show: can.value.progression },
     { label: 'التقارير والإحصاءات', route: 'reports.index', match: 'reports.*', icon: ChartBarIcon, show: can.value.reports },
     { label: 'الهيكل والمناهج', route: 'structure.index', match: ['structure.*', 'curricula.*'], icon: BuildingLibraryIcon, show: true },
+    { section: 'الشؤون المالية' },
+    { label: 'الرسوم والأقساط', route: 'finance.index', match: 'finance.*', icon: BanknotesIcon, show: can.value.finance },
     { section: 'الحوكمة' },
     { label: 'السياسات الأكاديمية', route: 'policies.index', match: 'policies.*', icon: ScaleIcon, show: can.value.policies },
     { label: 'الأوامر الإدارية', route: 'orders.index', match: 'orders.*', icon: DocumentTextIcon, show: can.value.orders },

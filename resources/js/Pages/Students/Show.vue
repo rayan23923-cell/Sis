@@ -10,7 +10,7 @@ import CredentialsModal from '@/Components/CredentialsModal.vue';
 import InputError from '@/Components/InputError.vue';
 import EmptyState from '@/Components/EmptyState.vue';
 import { studentStatus, outcome, resultStatus, systems, roundName } from '@/lib/labels';
-import { ArrowPathIcon, BookOpenIcon, ClockIcon, DocumentTextIcon, PlusIcon, PrinterIcon, KeyIcon } from '@heroicons/vue/24/outline';
+import { ArrowPathIcon, BookOpenIcon, ClockIcon, DocumentTextIcon, PlusIcon, PrinterIcon, KeyIcon, BanknotesIcon } from '@heroicons/vue/24/outline';
 
 const props = defineProps({ student: Object, programs: Array, history: Array, courses: Array, statuses: Object, transitions: Array, orders: Array, orderTypes: Object, programOptions: { type: Array, default: () => [] }, documents: { type: Array, default: () => [] } });
 const revoke = (d) => {
@@ -63,6 +63,7 @@ const passedCount = computed(() => props.courses.filter((c) => c.result?.status 
             </template>
             <a v-if="student.status === 'graduated'" :href="route('students.graduation', student.id)" target="_blank" class="btn-secondary"><PrinterIcon class="h-4 w-4" /> وثيقة التخرج PDF</a>
             <a :href="route('students.transcript', student.id)" target="_blank" class="btn-secondary"><PrinterIcon class="h-4 w-4" /> كشف الدرجات PDF</a>
+            <Link v-if="$page.props.can.finance" :href="route('finance.student', student.id)" class="btn-secondary"><BanknotesIcon class="h-4 w-4" /> الرسوم</Link>
             <button v-if="transitions.length" class="btn-primary" @click="openStatus('')"><ArrowPathIcon class="h-4 w-4" /> تغيير الحالة</button>
         </PageHeader>
 

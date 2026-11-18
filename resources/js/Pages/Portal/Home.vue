@@ -6,9 +6,12 @@ import Badge from '@/Components/Badge.vue';
 import EmptyState from '@/Components/EmptyState.vue';
 import InputError from '@/Components/InputError.vue';
 import { outcome, studentStatus } from '@/lib/labels';
-import { AcademicCapIcon, ArrowDownTrayIcon, BookOpenIcon, ChartBarIcon, ClockIcon, ExclamationTriangleIcon, KeyIcon } from '@heroicons/vue/24/outline';
+import { AcademicCapIcon, ArrowDownTrayIcon, BanknotesIcon, PrinterIcon, BookOpenIcon, ChartBarIcon, ClockIcon, ExclamationTriangleIcon, KeyIcon } from '@heroicons/vue/24/outline';
 
-const props = defineProps({ student: Object, current: Array, years: Array, official: Boolean, history: Array });
+const props = defineProps({ student: Object, current: Array, years: Array, official: Boolean, history: Array, fees: { type: Array, default: () => [] } });
+const money = (n) => Number(n ?? 0).toLocaleString('en-US');
+const lineTone = { paid: 'emerald', partial: 'sky', due: 'slate', overdue: 'rose' };
+const lineLabel = { paid: 'مسدد', partial: 'مسدد جزئياً', due: 'مستحق', overdue: 'متأخر' };
 const tab = ref('current');
 const lastGpa = computed(() => props.years.find((y) => y.gpa !== null)?.gpa ?? null);
 const totalCredits = computed(() => props.years.reduce((s, y) => s + y.credits, 0));
@@ -49,7 +52,7 @@ const savePw = () => pw.put(route('password.update'), { preserveScroll: true, on
 
         <div class="mt-6 flex flex-wrap items-center gap-2">
             <div class="flex gap-1 rounded-xl bg-slate-100 p-1 text-sm font-semibold">
-                <button v-for="[k, l, icon] in [['current', 'مواد هذا العام', BookOpenIcon], ['results', 'النتائج السابقة', ChartBarIcon], ['history', 'السجل', ClockIcon], ['account', 'الحساب', KeyIcon]]" :key="k"
+                <button v-for="[k, l, icon] in [['current', 'مواد هذا العام', BookOpenIcon], ['results', 'النتائج السابقة', ChartBarIcon], ['fees', 'الرسوم', BanknotesIcon], ['history', 'السجل', ClockIcon], ['account', 'الحساب', KeyIcon]]" :key="k"
                     class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition" :class="tab === k ? 'bg-white text-brand-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'" @click="tab = k">
                     <component :is="icon" class="h-4 w-4" /> {{ l }}
                 </button>
@@ -98,6 +101,31 @@ const savePw = () => pw.put(route('password.update'), { preserveScroll: true, on
                             </tr>
                         </tbody>
                     </table>
+                </div>
+            </section>
+        </template>
+
+        <!-- fees -->
+        <template v-if="tab === 'fees'">
+            <EmptyState v-if="!fees.length" class="card mt-4" title="لا توجد رسوم دراسية مطلوبة منك" />
+            <section v-for="f in fees" :key="f.id" class="card mt-4">
+                <div class="card-header flex flex-wrap items-center gap-2">
+                    <h2 class="card-title">رسوم العام <span class="ltr">{{ f.year }}</span></h2>
+                    <Badge :tone="f.status === 'paid' ? 'emerald' : 'amber'">{{ f.status === 'paid' ? 'مسددة' : 'غير مسددة' }}</Badge>
+                    <span class="ms-auto text-sm text-slate-500">المدفوع <b class="text-emerald-700">{{ money(f.paid) }}</b> من {{ money(f.net) }} · المتبقي <b class="text-slate-800">{{ money(f.balance) }}</b> دينار</span>
+                </div>
+                <ul class="divide-y divide-slate-100">
+                    <li v-for="l in f.lines" :key="l.number" class="flex items-center gap-3 px-5 py-3 text-sm">
+                        <span class="grid h-8 w-8 place-items-center rounded-lg bg-slate-100 font-bold text-slate-600">{{ l.number }}</span>
+                        <div class="flex-1"><p class="font-bold tabular-nums">{{ money(l.amount) }} دينار</p><p class="text-xs text-slate-400">يستحق <span class="ltr">{{ l.due_on }}</span></p></div>
+                        <Badge :tone="lineTone[l.status]">{{ lineLabel[l.status] }}</Badge>
+                    </li>
+                </ul>
+                <div v-if="f.payments.length" class="border-t border-slate-100 px-5 py-3">
+                    <p class="mb-2 text-sm font-bold text-slate-700">وصولات الدفع</p>
+                    <a v-for="p in f.payments" :key="p.id" :href="route('finance.receipt', p.id)" target="_blank" class="me-2 mb-2 inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200">
+                        <PrinterIcon class="h-4 w-4" /> <span class="ltr font-mono">{{ p.receipt }}</span> · {{ money(p.amount) }}
+                    </a>
                 </div>
             </section>
         </template>

@@ -44,6 +44,10 @@ class AppServiceProvider extends ServiceProvider
         // The teacher takes attendance; the department head and the college registrar can fix a register.
         Gate::define('take-attendance', fn (User $u, CourseOffering $o) => $o->teacher_id === $u->id
             || $u->hasRoleIn($o->collegeId(), 'head', 'college_registrar', 'registrar'));
+        // Fees: the university accountant sets fee schedules; accountants record invoices and payments.
+        Gate::define('view-finance', fn (User $u) => $u->hasRole('accountant', 'college_accountant', 'registrar', 'dean', 'auditor'));
+        Gate::define('manage-fee-schedules', fn (User $u) => $u->hasRole('accountant'));
+        Gate::define('collect-fees', fn (User $u) => $u->hasRole('accountant', 'college_accountant'));
         Gate::define('approve-results', fn (User $u, CourseOffering $o) => $u->hasRoleIn($o->collegeId(), 'committee', 'dean'));
         Gate::define('view-reports', fn (User $u) => $u->hasRole('registrar', 'college_registrar', 'dean', 'auditor'));
         Gate::define('view-progression', fn (User $u) => $u->hasRole('registrar', 'college_registrar', 'dean', 'committee', 'head', 'auditor'));

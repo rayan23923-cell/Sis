@@ -67,7 +67,10 @@ class OfferingAdminController extends Controller
 
         $created = 0;
         $enrolled = 0;
-        DB::transaction(function () use ($courseIds, $data, $term, $request, &$created, &$enrolled) {
+        // the plan's evaluative-exam flag is the default; the registrar adjusts it per year on the offering
+        $evaluative = CurriculumCourse::whereHas('curriculum', fn ($c) => $c->where('program_id', $program->id)->where('status', 'approved'))
+            ->where('is_evaluative', true)->pluck('course_id')->all();
+        DB::transaction(function () use ($courseIds, $data, $term, $request, $evaluative, &$created, &$enrolled) {
             foreach ($courseIds as $courseId) {
                 $exists = CourseOffering::where('course_id', $courseId)->where('academic_term_id', $term->id)->where('section', $data['section'])->exists();
                 if ($exists) {
@@ -77,6 +80,7 @@ class OfferingAdminController extends Controller
                     'course_id' => $courseId, 'academic_term_id' => $term->id, 'program_id' => $data['program_id'],
                     'stage' => $data['stage'], 'section' => $data['section'], 'shift' => $data['shift'] ?? 'morning', 'capacity' => $data['capacity'],
                     'teacher_id' => $data['mode'] === 'single' ? ($data['teacher_id'] ?? null) : null, 'status' => 'open', 'current_round' => 1,
+                    'is_evaluative' => in_array((int) $courseId, array_map('intval', $evaluative), true),
                 ]);
                 $this->gradebook->ensureComponents($o);
                 $created++;
@@ -99,8 +103,12 @@ class OfferingAdminController extends Controller
             'teacher_id' => ['nullable', 'exists:users,id'],
             'capacity' => ['required', 'integer', 'min:1', 'max:1000'],
             'shift' => ['required', Rule::in(array_keys(Student::SHIFTS))],
+            'is_evaluative' => ['boolean'],
             'section' => ['required', 'string', 'max:10', Rule::unique('course_offerings')->where('course_id', $offering->course_id)->where('academic_term_id', $offering->academic_term_id)->ignore($offering->id)],
         ], [], ['section' => 'الشعبة', 'capacity' => 'السعة']);
+        if (isset($data['is_evaluative']) && $data['is_evaluative'] !== $offering->is_evaluative && in_array($offering->status, ['approved', 'locked'], true)) {
+            throw new WorkflowException('لا يمكن تغيير شمول المادة بالامتحان التقويمي بعد مصادقة النتائج.');
+        }
         AuditContext::as($request->user()->id, 'تعديل بيانات الشعبة', fn () => $offering->update($data));
 
         return back()->with('success', 'حُفظت بيانات الشعبة.');

@@ -20,7 +20,9 @@ const resultTone = (r) => r.startsWith('ناجح') ? (r.includes('بالعبور
 // cell colours as in the paper master sheet: decision green, fail red, round-2 deduction blue, carried purple
 const cellClass = (c) => {
     if (!c || c.entitlement === null) return 'text-slate-300';
+    if (c.ev_failed) return 'bg-rose-100 text-rose-800 font-bold ring-1 ring-inset ring-rose-300';
     if (!c.passed) return 'bg-rose-50 text-rose-700 font-bold';
+    if (c.ev_treated) return 'bg-amber-50 text-amber-700 font-bold';
     if (c.award) return 'bg-emerald-50 text-emerald-700 font-bold';
     if (c.deducted && c.carried) return 'bg-violet-50 text-violet-700 font-bold';
     if (c.deducted) return 'bg-sky-50 text-sky-700 font-bold';
@@ -59,6 +61,13 @@ const params = computed(() => ({ ...f }));
                     <Badge v-if="!sheet.policy.official" tone="amber">قيم غير رسمية</Badge>
                     <Link :href="route('policies.index')" class="ms-auto text-xs font-semibold text-brand-700 hover:underline">تعديل من السياسات</Link>
                 </div>
+                <div v-if="sheet.courses.some((c) => c.evaluative) || sheet.policy.final_stage_extra || sheet.policy.no_fail_year" class="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm text-slate-600">
+                    <span v-if="sheet.courses.some((c) => c.evaluative)">الامتحان التقويمي: يرسب من تقل درجته النهائية عن <b class="text-slate-800">{{ sheet.policy.evaluative.fail_below }} من {{ sheet.policy.evaluative.out_of }}</b></span>
+                    <span v-if="sheet.courses.some((c) => c.evaluative)">معالجة التقويمي: <b class="text-slate-800">{{ sheet.policy.evaluative.excluded ? 'لا تشمل هذه الكلية' : sheet.policy.evaluative.treatment ? `${sheet.policy.evaluative.treatment} درجات لكل مادة` : 'لا توجد' }}</b></span>
+                    <span v-if="sheet.policy.final_stage_extra">إضافة المرحلة المنتهية: <b class="text-slate-800">{{ sheet.policy.final_stage_extra }} درجات</b></span>
+                    <Badge v-if="sheet.policy.no_fail_year" tone="violet">سنة عدم رسوب</Badge>
+                </div>
+                <p v-if="sheet.policy.source" class="mt-1 text-xs text-slate-400">المصدر: {{ sheet.policy.source }}</p>
                 <p class="mt-1 text-xs text-slate-400">أولويات القرار: مواد التحميل أولاً، ثم <span v-for="(p, i) in sheet.policy.priorities" :key="p">{{ priorityLabel[p] }}<span v-if="i < sheet.policy.priorities.length - 1">، ثم </span></span>.</p>
             </div>
 
@@ -75,6 +84,8 @@ const params = computed(() => ({ ...f }));
                 <span class="flex items-center gap-1"><span class="h-3 w-3 rounded bg-rose-100"></span> راسب</span>
                 <span class="flex items-center gap-1"><span class="h-3 w-3 rounded bg-sky-100"></span> خصم الدور الثاني</span>
                 <span class="flex items-center gap-1"><span class="h-3 w-3 rounded bg-violet-100"></span> خصم التحميل</span>
+                <span v-if="sheet.courses.some((c) => c.evaluative)" class="flex items-center gap-1"><span class="h-3 w-3 rounded bg-rose-100 ring-1 ring-rose-300"></span> راسب في التقويمي</span>
+                <span v-if="sheet.courses.some((c) => c.evaluative)" class="flex items-center gap-1"><span class="h-3 w-3 rounded bg-amber-100"></span> بمعالجة التقويمي</span>
             </div>
 
             <section class="card overflow-hidden">
@@ -85,7 +96,7 @@ const params = computed(() => ({ ...f }));
                             <tr>
                                 <th rowspan="2" class="sticky start-0 z-10 min-w-[200px] border-b border-e border-slate-200 bg-slate-50 px-3 py-2 text-start">الطالب</th>
                                 <th v-for="c in sheet.courses" :key="c.code" colspan="4" class="border-b border-e border-slate-200 px-2 py-2 text-center">
-                                    <span class="block font-bold text-slate-800">{{ c.name }}</span>
+                                    <span class="block font-bold text-slate-800">{{ c.name }}<span v-if="c.evaluative" class="ms-1 rounded bg-rose-100 px-1 text-[10px] text-rose-700">تقويمي</span></span>
                                     <span class="font-normal text-slate-400">{{ c.units }} وحدة · سعي {{ c.coursework_max }}</span>
                                 </th>
                                 <th rowspan="2" class="border-b border-e border-slate-200 px-2 py-2">التحميل</th>
@@ -112,7 +123,7 @@ const params = computed(() => ({ ...f }));
                                         <td class="px-1.5 py-2 text-center tabular-nums text-slate-500">{{ s.cells[c.code].coursework ?? '—' }}</td>
                                         <td class="px-1.5 py-2 text-center tabular-nums" :class="s.cells[c.code].r1 !== null && s.cells[c.code].r1 < 50 ? 'text-rose-600' : ''">{{ s.cells[c.code].r1 ?? '—' }}</td>
                                         <td class="px-1.5 py-2 text-center tabular-nums">{{ s.cells[c.code].r2 ?? '' }}</td>
-                                        <td class="border-e border-slate-100 px-1.5 py-2 text-center tabular-nums" :class="cellClass(s.cells[c.code])" :title="s.cells[c.code].award ? `قرار ${s.cells[c.code].award}` : ''">
+                                        <td class="border-e border-slate-100 px-1.5 py-2 text-center tabular-nums" :class="cellClass(s.cells[c.code])" :title="s.cells[c.code].award ? `قرار ${s.cells[c.code].award}` : s.cells[c.code].ev_treated ? `معالجة التقويمي ${s.cells[c.code].ev_treated}` : s.cells[c.code].ev_failed ? 'راسب في الامتحان التقويمي' : ''">
                                             {{ s.cells[c.code].entitlement ?? '—' }}
                                             <span v-if="s.cells[c.code].grade" class="block text-[10px] font-normal">{{ s.cells[c.code].grade }}</span>
                                         </td>

@@ -8,9 +8,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class CurriculumCourse extends Model
 {
-    protected $fillable = ['curriculum_version_id', 'course_id', 'stage', 'term_no', 'is_mandatory', 'credit_hours', 'ects', 'specialty_rank'];
+    protected $fillable = ['curriculum_version_id', 'course_id', 'stage', 'term_no', 'is_mandatory', 'credit_hours', 'ects', 'specialty_rank', 'is_evaluative'];
 
-    protected $casts = ['is_mandatory' => 'boolean', 'credit_hours' => 'float', 'ects' => 'float'];
+    protected $casts = ['is_mandatory' => 'boolean', 'is_evaluative' => 'boolean', 'credit_hours' => 'float', 'ects' => 'float'];
 
     public function curriculum(): BelongsTo
     {

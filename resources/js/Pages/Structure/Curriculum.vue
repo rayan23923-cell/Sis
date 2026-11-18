@@ -17,7 +17,7 @@ const available = computed(() => props.allCourses.filter((c) => !inCurriculum.va
 const prereqOptions = computed(() => props.stages.flatMap((s) => s.courses).filter((c) => true));
 
 const showAdd = ref(false);
-const addForm = useForm({ course_id: '', stage: 1, term_no: props.curriculum.system === 'annual' ? '' : 1, is_mandatory: true, prerequisites: [], specialty_rank: '' });
+const addForm = useForm({ course_id: '', stage: 1, term_no: props.curriculum.system === 'annual' ? '' : 1, is_mandatory: true, prerequisites: [], specialty_rank: '', is_evaluative: false });
 const add = () => addForm.post(route('curricula.courses.store', props.curriculum.id), { preserveScroll: true, onSuccess: () => { addForm.reset('course_id', 'prerequisites'); } });
 const remove = (c) => confirm(`إزالة ${c.name} من المسودة؟`) && router.delete(route('curricula.courses.destroy', [props.curriculum.id, c.id]), { preserveScroll: true });
 const courseIdByCode = (code) => props.allCourses.find((c) => c.code === code)?.id;
@@ -61,7 +61,7 @@ const newVersion = () => router.post(route('curricula.version', props.curriculum
                             <td>{{ c.term ? (c.term === 1 ? 'الأول' : 'الثاني') : 'سنوي' }}</td>
                             <td class="tabular-nums">{{ c.credits }}</td>
                             <td v-if="curriculum.system === 'bologna'" class="tabular-nums">{{ c.ects ?? '—' }}</td>
-                            <td><Badge :tone="c.mandatory ? 'brand' : 'slate'">{{ c.mandatory ? 'إلزامية' : 'اختيارية' }}</Badge></td>
+                            <td><Badge :tone="c.mandatory ? 'brand' : 'slate'">{{ c.mandatory ? 'إلزامية' : 'اختيارية' }}</Badge><Badge v-if="c.evaluative" tone="rose" class="ms-1">تقويمي</Badge></td>
                             <td class="font-mono text-xs">{{ c.prerequisites.join('، ') || '—' }}</td>
                             <td v-if="editable"><button class="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600" @click="remove(c)"><TrashIcon class="h-4 w-4" /></button></td>
                         </tr>
@@ -84,6 +84,7 @@ const newVersion = () => router.post(route('curricula.version', props.curriculum
                         <select v-model="addForm.prerequisites" multiple class="input h-28"><option v-for="c in prereqOptions" :key="c.code" :value="courseIdByCode(c.code)">{{ c.code }} — {{ c.name }}</option></select>
                         <p class="mt-1 text-xs text-slate-500">اختر بالضغط مع Ctrl. يجب أن يجتازها الطالب قبل التسجيل.</p></div>
                     <label class="flex items-center gap-2 text-sm font-semibold"><input v-model="addForm.is_mandatory" type="checkbox" class="rounded border-slate-300 text-brand-600" /> إلزامية</label>
+                    <label class="flex items-center gap-2 text-sm font-semibold"><input v-model="addForm.is_evaluative" type="checkbox" class="rounded border-slate-300 text-brand-600" /> مشمولة بالامتحان التقويمي</label>
                 </div>
                 <div class="mt-6 flex justify-end gap-2"><button type="button" class="btn-secondary" @click="showAdd = false">إغلاق</button><button class="btn-primary" :disabled="addForm.processing">إضافة</button></div>
             </form>

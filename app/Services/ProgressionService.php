@@ -85,6 +85,13 @@ class ProgressionService
 
                         return $row;
                     }
+                    if (collect($ms['failed'])->contains('carried', true) && ($policies->get('decision')->parameters['no_fail_year'] ?? false)) {
+                        // a "سنة عدم رسوب" declared by the ministry: no dismissal this year, the student repeats
+                        $row['decision'] = 'repeat';
+                        $row['result'] .= ' (سنة عدم رسوب)';
+
+                        return $row;
+                    }
                     if (collect($ms['failed'])->contains('carried', true)) {
                         // the master sheet flags this as a possible dismissal (ترقين قيد); the committee decides
                         $row['problem'] = 'راسب في مادة محمّلة. يُعرض على اللجنة الامتحانية (احتمال ترقين القيد).';

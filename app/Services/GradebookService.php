@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\AcademicRules\CourseResultCalculator;
 use App\AcademicRules\Data\ComponentMark;
+use App\AcademicRules\Evaluative;
 use App\AcademicRules\Executors\ExamRounds;
 use App\AcademicRules\Executors\GradeScale;
 use App\AcademicRules\RulesException;
@@ -314,6 +315,24 @@ class GradebookService
                 $band = (new GradeScale($policies->get('grade_scale')))->band($rounded);
             }
             $outcome = $rounds->finalOutcome($band->outcome, $round);
+        }
+
+        // the national evaluative exam: below the threshold in the final exam the course fails, whatever the total
+        if ($enrollment->offering->is_evaluative) {
+            $decision = $policies->has('decision') ? $policies->get('decision') : null;
+            $evaluative = new Evaluative($decision);
+            $finals = $components->filter(fn (AssessmentComponent $c) => str_starts_with($c->code, 'final'));
+            $weight = (float) $finals->sum('weight');
+            $points = $finals->sum(fn (AssessmentComponent $c) => $c->max_mark > 0 ? (float) ($marks->get($c->id)?->mark ?? 0) / $c->max_mark * $c->weight : 0);
+            $snapshot['evaluative'] = ['final' => round($points, 2), 'threshold' => $evaluative->threshold($weight), 'decision' => $decision?->snapshot()];
+            if ($band->passed && $evaluative->fails($points, $weight)) {
+                $scale = new GradeScale($policies->get('grade_scale'));
+                $failing = collect($scale->bands())->filter(fn ($b) => ! $b->passed)->last();
+                if ($failing) {
+                    $band = $failing;
+                    $outcome = isset($rounds) ? $rounds->finalOutcome($band->outcome, $round) : $band->outcome;
+                }
+            }
         }
 
         return [

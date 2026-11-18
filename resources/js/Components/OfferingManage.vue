@@ -11,12 +11,12 @@ const emit = defineEmits(['close']);
 const tab = ref('info');
 const teachers = ref([]);
 
-const info = useForm({ teacher_id: '', capacity: 60, section: 'A', shift: 'morning' });
+const info = useForm({ teacher_id: '', capacity: 60, section: 'A', shift: 'morning', is_evaluative: false });
 const comps = useForm({ components: [] });
 watch(() => props.show, async (s) => {
     if (!s) return;
     tab.value = 'info';
-    Object.assign(info, { teacher_id: props.offering.teacher_id ?? '', capacity: props.offering.capacity, section: props.offering.section, shift: props.offering.shift ?? 'morning' });
+    Object.assign(info, { teacher_id: props.offering.teacher_id ?? '', capacity: props.offering.capacity, section: props.offering.section, shift: props.offering.shift ?? 'morning', is_evaluative: !!props.offering.evaluative });
     comps.components = props.components.map((c) => ({ ...c }));
     if (!teachers.value.length) teachers.value = (await axios.get(route('offerings.teachers'))).data;
 });
@@ -65,6 +65,11 @@ const add = (s) => router.post(route('offerings.students.store', props.offering.
                     <div><label class="label">الدراسة</label><select v-model="info.shift" class="input"><option value="morning">صباحية</option><option value="evening">مسائية</option></select></div>
                     <div><label class="label">السعة</label><input v-model="info.capacity" type="number" min="1" class="input" /></div>
                 </div>
+                <label class="flex items-start gap-2 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-900">
+                    <input v-model="info.is_evaluative" type="checkbox" class="mt-1 rounded border-slate-300" />
+                    <span>المادة مشمولة بالامتحان التقويمي لهذا العام. يرسب الطالب فيها إذا قلّت درجة الامتحان النهائي عن حد التقويمي في سياسة «القرار»، مهما كان مجموعه، ولا يشملها القرار الاعتيادي.</span>
+                </label>
+                <InputError :message="info.errors.is_evaluative" class="mt-1" />
                 <div class="flex justify-end gap-2"><button type="button" class="btn-secondary" @click="emit('close')">إغلاق</button><button class="btn-primary" :disabled="info.processing">حفظ</button></div>
             </form>
 

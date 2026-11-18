@@ -118,7 +118,7 @@ class StructureAdminController extends Controller
             $next = CurriculumVersion::where('program_id', $curriculum->program_id)->max('version') + 1;
             $copy = CurriculumVersion::create(['program_id' => $curriculum->program_id, 'version' => $next, 'name' => preg_replace('/\s*\(إصدار \d+\)$/u', '', $curriculum->name).' (إصدار '.$next.')', 'status' => 'draft']);
             foreach ($curriculum->courses()->with('prerequisites')->get() as $cc) {
-                $c = $copy->courses()->create($cc->only(['course_id', 'stage', 'term_no', 'is_mandatory', 'credit_hours', 'ects']));
+                $c = $copy->courses()->create($cc->only(['course_id', 'stage', 'term_no', 'is_mandatory', 'credit_hours', 'ects', 'specialty_rank', 'is_evaluative']));
                 $c->prerequisites()->sync($cc->prerequisites->pluck('id'));
             }
 
@@ -135,13 +135,13 @@ class StructureAdminController extends Controller
             'course_id' => ['required', 'exists:courses,id', Rule::unique('curriculum_courses')->where('curriculum_version_id', $curriculum->id)],
             'stage' => ['required', 'integer', 'min:1', 'max:7'], 'term_no' => ['nullable', 'integer', 'in:1,2'],
             'is_mandatory' => ['boolean'], 'prerequisites' => ['array'], 'prerequisites.*' => ['exists:courses,id'],
-            'specialty_rank' => ['nullable', 'integer', 'min:1', 'max:30'],
+            'specialty_rank' => ['nullable', 'integer', 'min:1', 'max:30'], 'is_evaluative' => ['boolean'],
         ], ['course_id.unique' => 'المادة موجودة في المنهج.'], ['course_id' => 'المادة', 'stage' => 'المرحلة']);
         $course = Course::findOrFail($data['course_id']);
         $cc = $curriculum->courses()->create([
             'course_id' => $course->id, 'stage' => $data['stage'], 'term_no' => $data['term_no'] ?? null,
             'is_mandatory' => $data['is_mandatory'] ?? true, 'credit_hours' => $course->credit_hours, 'ects' => $course->ects,
-            'specialty_rank' => $data['specialty_rank'] ?? null,
+            'specialty_rank' => $data['specialty_rank'] ?? null, 'is_evaluative' => $data['is_evaluative'] ?? false,
         ]);
         $cc->prerequisites()->sync(array_diff($data['prerequisites'] ?? [], [$course->id]));
 

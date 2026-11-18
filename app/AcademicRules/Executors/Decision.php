@@ -3,6 +3,7 @@
 namespace App\AcademicRules\Executors;
 
 use App\AcademicRules\Data\DecisionItem;
+use App\AcademicRules\Evaluative;
 use App\AcademicRules\Policy;
 use App\AcademicRules\RulesException;
 
@@ -16,6 +17,9 @@ use App\AcademicRules\RulesException;
  *   priorities   ordered list of reduce_failures | lower_coursework | more_units | closest_specialty
  *   pass_mark    (default 50)
  *   resit_deduction (default 10)  a course passed in round 2 (or a carried course) counts mark - 10, never below the pass mark
+ *   final_stage_extra (default 0) extra decision marks for final-stage students (critical graduation cases)
+ *   no_fail_year (default false)  a "سنة عدم رسوب": a student who would be referred for dismissal repeats the year instead
+ *   evaluative   the national evaluative exam rule and its treatment (see App\AcademicRules\Evaluative)
  *
  * A course is lifted to exactly the pass mark when mark + what is left of the decision reaches it. Courses are
  * tried in priority order; a course the remainder cannot lift is skipped and the next one is tried.
@@ -42,6 +46,22 @@ final class Decision
                 throw new RulesException('Decision amount cannot be negative.');
             }
         }
+        if ($this->finalStageExtra() < 0) {
+            throw new RulesException('final_stage_extra cannot be negative.');
+        }
+        $this->evaluative = new Evaluative($policy);
+    }
+
+    public readonly Evaluative $evaluative;
+
+    public function finalStageExtra(): float
+    {
+        return (float) ($this->policy->parameters['final_stage_extra'] ?? 0);
+    }
+
+    public function noFailYear(): bool
+    {
+        return (bool) ($this->policy->parameters['no_fail_year'] ?? false);
     }
 
     public function amount(int $round): float

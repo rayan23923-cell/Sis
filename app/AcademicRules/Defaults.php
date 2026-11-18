@@ -80,6 +80,10 @@ final class Defaults
                     'priorities' => ['reduce_failures', 'more_units', 'closest_specialty', 'lower_coursework'],
                     'pass_mark' => 50,
                     'resit_deduction' => 10,
+                    'final_stage_extra' => 0,
+                    'no_fail_year' => false,
+                    // the national evaluative exam: fails below 20 of a 60-mark final (as in the university's master sheet)
+                    'evaluative' => ['fail_below' => 20, 'out_of' => 60, 'treatment' => 0, 'treatment_scale' => 'weight', 'final_stage_bonus' => 0, 'excluded_colleges' => []],
                 ],
             ];
         }

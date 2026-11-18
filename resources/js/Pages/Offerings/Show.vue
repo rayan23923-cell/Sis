@@ -160,7 +160,7 @@ const outcomeTone = { pass: 'text-emerald-700', fail: 'text-rose-700', resit: 't
                     <span class="font-mono font-bold text-brand-700">{{ offering.code }}</span>
                     <span>{{ offering.department }}</span>
                     <span v-if="offering.stage">المرحلة {{ offering.stage }}</span>
-                    <span>شعبة {{ offering.section }}<template v-if="offering.shift === 'evening'"> · مسائية</template></span>
+                    <span>شعبة {{ offering.section }}<template v-if="offering.shift === 'evening'"> · مسائية</template><template v-if="offering.evaluative"> · <b class="text-rose-700">امتحان تقويمي</b></template></span>
                     <span>{{ offering.term }}</span>
                     <span>{{ offering.teacher ?? 'بدون تدريسي' }}</span>
                     <span>{{ offering.credits }} وحدة<span v-if="offering.ects"> · {{ offering.ects }} ECTS</span></span>

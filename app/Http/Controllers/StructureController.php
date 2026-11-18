@@ -70,7 +70,7 @@ class StructureController extends Controller
                 'ects' => $rows->sum('ects'),
                 'courses' => $rows->map(fn ($cc) => [
                     'id' => $cc->id, 'code' => $cc->course->code, 'name' => $cc->course->name_ar, 'name_en' => $cc->course->name_en,
-                    'term' => $cc->term_no, 'mandatory' => $cc->is_mandatory, 'credits' => $cc->credit_hours, 'ects' => $cc->ects, 'specialty_rank' => $cc->specialty_rank,
+                    'term' => $cc->term_no, 'mandatory' => $cc->is_mandatory, 'credits' => $cc->credit_hours, 'ects' => $cc->ects, 'specialty_rank' => $cc->specialty_rank, 'evaluative' => $cc->is_evaluative,
                     'prerequisites' => $cc->prerequisites->pluck('code'),
                 ])->values(),
             ])->values(),

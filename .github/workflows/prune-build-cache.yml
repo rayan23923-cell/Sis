@@ -1,0 +1,36 @@
+name: Prune Docker build cache
+
+# Frees disk on the shared VPS by removing Docker's build cache only (approved by the owner on
+# 2026-11-18). No container, image in use, volume or file of any site is touched; the next image
+# build of each project is just slower once. Runs by hand, or when this file changes.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/prune-build-cache.yml']
+
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up SSH
+        env:
+          KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST || '193.123.83.82' }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$KEY" | tr -d '\r' > ~/.ssh/vps_key
+          chmod 600 ~/.ssh/vps_key
+          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Prune
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST || '193.123.83.82' }}
+          VPS_USER: ${{ secrets.VPS_USER || 'ubuntu' }}
+        run: |
+          ssh -i ~/.ssh/vps_key "$VPS_USER@$VPS_HOST" '
+            echo "== before"; df -h / | tail -1; sudo docker system df | grep -E "TYPE|Build Cache"
+            sudo docker builder prune -af | tail -1
+            echo "== after"; df -h / | tail -1; sudo docker system df | grep -E "TYPE|Build Cache"
+            echo "== sites still running"; sudo docker ps --format "{{.Names}}\t{{.Status}}" | sort
+          '

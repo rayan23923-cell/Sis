@@ -1,8 +1,8 @@
 name: Deploy to VPS (staging)
 
 # Ships SIS staging to https://sis.azoclinic.duckdns.org on the same VPS as FileNest, in its own
-# folder and containers, behind the shared Caddy. For now it only checks the server and serves a
-# placeholder page; the Laravel app joins deploy/vps/docker-compose.yml once it exists.
+# folder and containers (sis-*), behind the shared Caddy. deploy/vps/deploy.sh backs up the database,
+# builds the images on the server, migrates, and on the first install seeds demo data.
 #
 # Repository secret: VPS_SSH_KEY (private key of the ubuntu user, no passphrase).
 # Optional: VPS_HOST (default 193.123.83.82), VPS_USER (default ubuntu).
@@ -86,18 +86,16 @@ jobs:
           VPS_HOST: ${{ secrets.VPS_HOST || '193.123.83.82' }}
           VPS_USER: ${{ secrets.VPS_USER || 'ubuntu' }}
         run: |
-          tar czf /tmp/deploy.tgz deploy
-          ssh -i ~/.ssh/vps_key "$VPS_USER@$VPS_HOST" "mkdir -p '$APP_DIR' && tar xzf - -C '$APP_DIR'" < /tmp/deploy.tgz
-          ssh -i ~/.ssh/vps_key "$VPS_USER@$VPS_HOST" "cd '$APP_DIR' && chmod -R a+rX deploy/vps/site \
-            && sudo docker compose -f deploy/vps/docker-compose.yml up -d --remove-orphans \
-            && SIS_DOMAIN='$DOMAIN' sh deploy/vps/caddy-site.sh \
-            && sudo docker ps --filter name=sis- --format '{{.Names}}  {{.Status}}'"
+          # The tracked files of this commit only: no .env, no local database, no build output.
+          git archive --format=tar.gz -o /tmp/release.tgz HEAD
+          ssh -i ~/.ssh/vps_key "$VPS_USER@$VPS_HOST" "mkdir -p '$APP_DIR' && tar xzf - -C '$APP_DIR'" < /tmp/release.tgz
+          ssh -i ~/.ssh/vps_key -o ServerAliveInterval=30 "$VPS_USER@$VPS_HOST" "cd '$APP_DIR' && SIS_DOMAIN='$DOMAIN' sh deploy/vps/deploy.sh"
 
       - name: Check the site answers
         run: |
           for i in $(seq 1 30); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' "$SITE/" || true)
-            [ "$code" = 200 ] && { echo "$SITE answers 200."; exit 0; }
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$SITE/login" || true)
+            [ "$code" = 200 ] && { echo "$SITE/login answers 200."; exit 0; }
             sleep 6
           done
-          echo "::error::$SITE did not answer 200 (last: $code)."; exit 1
+          echo "::error::$SITE/login did not answer 200 (last: $code)."; exit 1

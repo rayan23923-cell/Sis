@@ -1,18 +1,84 @@
-# SIS staging on the VPS (same server and shared Caddy as FileNest, network `headscale_default`).
-# Until the Laravel app exists this serves only a placeholder page; the app, db, queue and scheduler
-# services join here in the same shape as FileNest's deploy/vps/docker-compose.yml.
-# Run from the repo root:  docker compose -f deploy/vps/docker-compose.yml up -d
-# Container names start with sis- so nothing clashes with FileNest, the dental app or other services.
+# SIS staging on the VPS: nginx + PHP-FPM + MariaDB + queue worker + scheduler, in the same shape as
+# FileNest's deploy/vps/docker-compose.yml. Reached through the shared Caddy (network `headscale_default`)
+# at https://sis.azoclinic.duckdns.org .
+# Run from the repo root:  docker compose --env-file .env -f deploy/vps/docker-compose.yml up -d --build
+# Container names start with sis- so nothing clashes with FileNest or the other services.
 name: sis
 
 services:
+  db:
+    image: mariadb:11.8
+    container_name: sis-db
+    restart: unless-stopped
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --default-time-zone=+03:00 --skip-log-bin --performance-schema=OFF --max-connections=80 --innodb-buffer-pool-size=256M
+    environment:
+      MARIADB_DATABASE: ${DB_DATABASE}
+      MARIADB_USER: ${DB_USERNAME}
+      MARIADB_PASSWORD: ${DB_PASSWORD}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+    volumes:
+      - sis_db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    networks: [default]
+
+  app:
+    build:
+      context: ../..
+      dockerfile: deploy/vps/Dockerfile
+      target: app
+    image: sis-app:latest
+    container_name: sis-app
+    restart: unless-stopped
+    env_file: ../../.env
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - sis_storage:/var/www/html/storage
+    networks: [default]
+
+  queue:
+    image: sis-app:latest
+    container_name: sis-queue
+    restart: unless-stopped
+    env_file: ../../.env
+    user: www-data
+    command: ["php", "artisan", "queue:work", "--tries=3", "--timeout=300", "--sleep=3", "--max-time=3600"]
+    depends_on: [app]
+    volumes:
+      - sis_storage:/var/www/html/storage
+    networks: [default]
+
+  scheduler:
+    image: sis-app:latest
+    container_name: sis-scheduler
+    restart: unless-stopped
+    env_file: ../../.env
+    user: www-data
+    command: ["php", "artisan", "schedule:work"]
+    depends_on: [app]
+    volumes:
+      - sis_storage:/var/www/html/storage
+    networks: [default]
+
   web:
-    image: nginx:1.27-alpine
+    build:
+      context: ../..
+      dockerfile: deploy/vps/Dockerfile
+      target: web
+    image: sis-web:latest
     container_name: sis-web
     restart: unless-stopped
-    volumes:
-      - ./site:/usr/share/nginx/html:ro
-    networks: [edge]
+    depends_on: [app]
+    networks: [default, edge]
+
+volumes:
+  sis_db:
+  sis_storage:
 
 networks:
   edge:

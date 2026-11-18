@@ -16,3 +16,21 @@
 
 ## البيئة التجريبية
 https://sis.azoclinic.duckdns.org — تُنشر تلقائياً من فرع `main` عبر `.github/workflows/deploy-vps.yml` (يحتاج سر `VPS_SSH_KEY`). بيانات وهمية فقط.
+
+## الإصدار الأول (الزيادة 1)
+
+ما يعمل الآن: الهيكل الجامعي والمناهج المرقمة بإصدارات، قبول الطلبة مع فحص التكرار والرقم الجامعي التلقائي،
+تغيير حالة الطالب بأمر إداري فقط، كشف الدرجات (إدخال ← احتساب ← رفع للجنة ← مصادقة ← قفل ← الدور الثاني)،
+تصحيح النتيجة المقفلة بإصدار جديد مستند إلى أمر إداري، السياسات الأكاديمية المؤرخة (المؤقتة منها معلَّمة «غير رسمية»)،
+وسجل تدقيق لا يُعدَّل. الصلاحيات محصورة بنطاق الكلية أو القسم، والتدريسي يرى مواده فقط.
+
+```sh
+composer install && npm ci && npm run build
+cp .env.example .env && php artisan key:generate
+php artisan migrate --seed      # سياسات مؤقتة + مدير النظام + بيانات تجريبية (SIS_DEMO_DATA)
+php artisan serve
+php vendor/bin/phpunit          # اختبارات المحرك وعزل الكليات وسير عمل الدرجات
+```
+
+كلمة مرور المدير تُكتب في `storage/app/private/admin-password.txt` (أو من `SIS_ADMIN_PASSWORD`).
+حسابات التجربة: `registrar@`، `dean.eng@`، `committee.eng@`، `registrar.eng@`، `teacher1@`… `@sis.local` بكلمة مرور المدير نفسها.

@@ -39,7 +39,7 @@ const save = () => {
         </PageHeader>
         <div class="card">
             <div class="grid gap-3 border-b border-slate-100 p-4 sm:grid-cols-3">
-                <div class="relative sm:col-span-2"><MagnifyingGlassIcon class="pointer-events-none absolute right-3 top-2.5 h-5 w-5 text-slate-400" /><input v-model="f.q" class="input pr-10" placeholder="اسم المادة أو رمزها" /></div>
+                <div class="relative sm:col-span-2"><MagnifyingGlassIcon class="pointer-events-none absolute start-3 top-2.5 h-5 w-5 text-slate-400" /><input v-model="f.q" class="input ps-10" placeholder="اسم المادة أو رمزها" /></div>
                 <select v-model="f.department" class="input"><option value="">كل الأقسام</option><optgroup v-for="[cid, cname] in colleges" :key="cid" :label="cname"><option v-for="d in departments.filter((x) => x.college_id === cid)" :key="d.id" :value="d.id">{{ d.name }}</option></optgroup></select>
             </div>
             <div class="overflow-x-auto">

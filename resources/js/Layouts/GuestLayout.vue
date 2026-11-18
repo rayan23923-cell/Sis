@@ -1,5 +1,6 @@
 <script setup>
 import { Head, usePage } from '@inertiajs/vue3';
+import LocaleSwitch from '@/Components/LocaleSwitch.vue';
 import { BookOpenIcon, ShieldCheckIcon, ClipboardDocumentCheckIcon, AcademicCapIcon } from '@heroicons/vue/24/outline';
 
 defineProps({ title: { type: String, default: '' } });
@@ -11,6 +12,7 @@ const page = usePage();
     <div class="flex min-h-screen bg-white">
         <div class="flex flex-1 flex-col justify-center px-6 py-12 sm:px-12 lg:flex-none lg:basis-[520px]">
             <div class="mx-auto w-full max-w-sm">
+                <LocaleSwitch class="mb-6 ms-auto rounded-lg px-3 py-1.5 text-sm font-semibold text-slate-500 hover:bg-slate-100" />
                 <div class="mb-10 flex items-center gap-3">
                     <div class="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-brand-600 to-emerald-500 text-white shadow-lg shadow-brand-200"><BookOpenIcon class="h-7 w-7" /></div>
                     <div><p class="text-lg font-extrabold text-slate-900">{{ page.props.app?.name }}</p><p class="text-sm text-slate-500">{{ page.props.app?.university }}</p></div>

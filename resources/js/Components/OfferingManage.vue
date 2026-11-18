@@ -79,7 +79,7 @@ const add = (s) => router.post(route('offerings.students.store', props.offering.
             </form>
 
             <div v-else class="mt-5">
-                <div class="relative"><MagnifyingGlassIcon class="pointer-events-none absolute right-3 top-2.5 h-5 w-5 text-slate-400" /><input v-model="q" class="input pr-10" placeholder="اسم الطالب أو رقمه الجامعي" autofocus /></div>
+                <div class="relative"><MagnifyingGlassIcon class="pointer-events-none absolute start-3 top-2.5 h-5 w-5 text-slate-400" /><input v-model="q" class="input ps-10" placeholder="اسم الطالب أو رقمه الجامعي" autofocus /></div>
                 <label class="mt-3 flex items-center gap-2 text-sm font-semibold"><input v-model="carried" type="checkbox" class="rounded border-slate-300 text-brand-600" /> مادة محملة (من مرحلة سابقة)</label>
                 <ul class="mt-3 divide-y divide-slate-100 rounded-xl border border-slate-100">
                     <li v-for="s in found" :key="s.id" class="flex items-center justify-between px-4 py-2.5 text-sm">

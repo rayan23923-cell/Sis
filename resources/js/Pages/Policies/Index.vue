@@ -98,7 +98,7 @@ const discard = (p) => confirm('حذف هذه المسودة؟') && router.delet
                         <div class="flex flex-wrap items-center gap-2">
                             <span class="font-bold">إصدار {{ v.version }}</span><Badge :map="policyStatus" :value="v.status" /><Badge v-if="!v.official" tone="amber">غير رسمية</Badge>
                             <span class="text-xs tabular-nums text-slate-500">{{ v.from }}{{ v.to ? ' ← ' + v.to : '' }}</span>
-                            <span v-if="canManage && v.status === 'draft'" class="mr-auto flex gap-1">
+                            <span v-if="canManage && v.status === 'draft'" class="ms-auto flex gap-1">
                                 <button class="btn-success btn-sm" @click="approve(v)">اعتماد</button><button class="btn-ghost btn-sm" @click="discard(v)">حذف</button>
                             </span>
                         </div>

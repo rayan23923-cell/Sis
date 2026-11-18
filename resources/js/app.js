@@ -17,7 +17,9 @@ createInertiaApp({
     title: (title) => (title ? `${title} — ${appName}` : appName),
     resolve: (name) => resolvePageComponent(`./Pages/${name}.vue`, import.meta.glob('./Pages/**/*.vue')),
     setup({ el, App, props, plugin }) {
-        return createApp({ render: () => h(App, props) }).use(plugin).use(ZiggyVue).mount(el);
+        const app = createApp({ render: () => h(App, props) }).use(plugin).use(ZiggyVue);
+        app.config.globalProperties.__ = (key, params) => window.__(key, params); // see resources/js/i18n/arabic-i18n.js
+        return app.mount(el);
     },
     progress: { color: '#2a70a6' },
 });

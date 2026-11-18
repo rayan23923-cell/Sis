@@ -26,6 +26,8 @@ class AcademicTerm extends Model
 
     public function label(): string
     {
-        return $this->name_ar.' '."\u{2066}".$this->year?->name."\u{2069}";
+        $name = app()->getLocale() !== 'ar' && $this->name_en ? $this->name_en : $this->name_ar;
+
+        return $name.' '."\u{2066}".$this->year?->name."\u{2069}";
     }
 }

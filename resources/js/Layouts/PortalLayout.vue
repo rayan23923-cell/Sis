@@ -1,6 +1,7 @@
 <script setup>
 import { Head, Link, usePage } from '@inertiajs/vue3';
 import FlashToast from '@/Components/FlashToast.vue';
+import LocaleSwitch from '@/Components/LocaleSwitch.vue';
 import { ArrowRightOnRectangleIcon, BookOpenIcon } from '@heroicons/vue/24/outline';
 
 defineProps({ title: { type: String, default: '' } });
@@ -17,8 +18,9 @@ const page = usePage();
                     <p class="truncate font-extrabold">بوابة الطالب</p>
                     <p class="truncate text-xs text-brand-300">{{ page.props.app.university }}</p>
                 </div>
-                <div class="mr-auto flex items-center gap-3 text-sm">
+                <div class="ms-auto flex items-center gap-3 text-sm">
                     <span class="hidden text-brand-200 sm:inline">{{ page.props.auth.user?.name }}</span>
+                    <LocaleSwitch class="rounded-lg px-3 py-1.5 text-brand-200 hover:bg-white/10 hover:text-white" />
                     <Link :href="route('logout')" method="post" as="button" class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-brand-200 hover:bg-white/10 hover:text-white">
                         <ArrowRightOnRectangleIcon class="h-4 w-4" /> خروج
                     </Link>

@@ -24,7 +24,7 @@ const tone = { admission: 'emerald', dismissal: 'rose', result_correction: 'viol
         </PageHeader>
         <div class="card">
             <div class="grid gap-3 border-b border-slate-100 p-4 sm:grid-cols-3">
-                <div class="relative sm:col-span-2"><MagnifyingGlassIcon class="pointer-events-none absolute right-3 top-2.5 h-5 w-5 text-slate-400" /><input v-model="f.q" class="input pr-10" placeholder="رقم الأمر أو عنوانه" /></div>
+                <div class="relative sm:col-span-2"><MagnifyingGlassIcon class="pointer-events-none absolute start-3 top-2.5 h-5 w-5 text-slate-400" /><input v-model="f.q" class="input ps-10" placeholder="رقم الأمر أو عنوانه" /></div>
                 <select v-model="f.type" class="input"><option value="">كل الأنواع</option><option v-for="(l, k) in types" :key="k" :value="k">{{ l }}</option></select>
             </div>
             <div class="overflow-x-auto">

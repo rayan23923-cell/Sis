@@ -200,8 +200,8 @@ const outcomeTone = { pass: 'text-emerald-700', fail: 'text-rose-700', resit: 't
                     <!-- toolbar -->
                     <div class="flex flex-col gap-3 border-b border-slate-100 p-4 lg:flex-row lg:items-center">
                         <div class="relative flex-1">
-                            <MagnifyingGlassIcon class="pointer-events-none absolute right-3 top-2.5 h-5 w-5 text-slate-400" />
-                            <input v-model="q" class="input pr-10" placeholder="بحث عن طالب" />
+                            <MagnifyingGlassIcon class="pointer-events-none absolute start-3 top-2.5 h-5 w-5 text-slate-400" />
+                            <input v-model="q" class="input ps-10" placeholder="بحث عن طالب" />
                         </div>
                         <div class="flex rounded-xl bg-slate-100 p-1 text-xs font-bold">
                             <button v-for="[k, l] in [['all', 'الكل'], ['missing', 'ناقصة'], ['resit', 'دور ثانٍ'], ['fail', 'غير ناجح']]" :key="k"

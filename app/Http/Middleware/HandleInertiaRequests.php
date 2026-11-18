@@ -4,6 +4,8 @@ namespace App\Http\Middleware;
 
 use App\Models\AcademicPolicy;
 use App\Models\RoleAssignment;
+use App\Support\Translations;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Middleware;
@@ -12,12 +14,29 @@ class HandleInertiaRequests extends Middleware
 {
     protected $rootView = 'app';
 
+    /** Inertia visits in a non-Arabic locale: translate known server texts (labels, statuses, flash messages). */
+    public function handle(Request $request, \Closure $next)
+    {
+        $response = parent::handle($request, $next);
+        $locale = app()->getLocale();
+        if ($locale !== 'ar' && $response instanceof JsonResponse && $request->header('X-Inertia')) {
+            $data = $response->getData(true);
+            if (isset($data['props'])) {
+                $data['props'] = Translations::deep($data['props'], $locale);
+                $response->setData($data);
+            }
+        }
+
+        return $response;
+    }
+
     public function share(Request $request): array
     {
         $user = $request->user();
 
         return [
             ...parent::share($request),
+            'locale' => app()->getLocale(),
             'app' => [
                 'name' => config('app.name'),
                 'university' => config('sis.university_name'),

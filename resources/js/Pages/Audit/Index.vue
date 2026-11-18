@@ -34,7 +34,7 @@ const show = (v) => (v === null || v === undefined ? '—' : typeof v === 'objec
                         <Badge :tone="actions[l.action]?.[1] ?? 'slate'">{{ actions[l.action]?.[0] ?? l.action }}</Badge>
                         <span class="font-semibold text-slate-800">{{ l.model }} #{{ l.model_id }}</span>
                         <span class="hidden truncate text-slate-500 sm:inline">{{ l.reason }}</span>
-                        <span class="mr-auto shrink-0 text-xs text-slate-500">{{ l.user }}</span>
+                        <span class="ms-auto shrink-0 text-xs text-slate-500">{{ l.user }}</span>
                         <span class="shrink-0 text-xs tabular-nums text-slate-400">{{ l.at }}</span>
                         <ChevronDownIcon class="h-4 w-4 shrink-0 text-slate-400 transition" :class="open === l.id && 'rotate-180'" />
                     </button>

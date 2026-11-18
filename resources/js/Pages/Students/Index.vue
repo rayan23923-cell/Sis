@@ -54,8 +54,8 @@ const reset = () => Object.assign(f, { q: '', college: '', program: '', status: 
         <div class="card">
             <div class="grid gap-3 border-b border-slate-100 p-4 sm:grid-cols-2 lg:grid-cols-6">
                 <div class="relative lg:col-span-2">
-                    <MagnifyingGlassIcon class="pointer-events-none absolute right-3 top-2.5 h-5 w-5 text-slate-400" />
-                    <input v-model="f.q" type="search" class="input pr-10" placeholder="بحث بالاسم أو الرقم الجامعي أو الوطني" autofocus />
+                    <MagnifyingGlassIcon class="pointer-events-none absolute start-3 top-2.5 h-5 w-5 text-slate-400" />
+                    <input v-model="f.q" type="search" class="input ps-10" placeholder="بحث بالاسم أو الرقم الجامعي أو الوطني" autofocus />
                 </div>
                 <select v-model="f.college" class="input" @change="f.program = ''"><option value="">كل الكليات</option><option v-for="c in colleges" :key="c.id" :value="c.id">{{ c.name_ar }}</option></select>
                 <select v-model="f.program" class="input"><option value="">كل البرامج</option><option v-for="p in programs" :key="p.id" :value="p.id">{{ p.name }}</option></select>

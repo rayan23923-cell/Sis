@@ -68,7 +68,7 @@ const makeCurrent = (y) => confirm(`جعل ${y.name} السنة الحالية؟
                             <div class="mb-3 flex items-center gap-2">
                                 <p class="font-bold text-slate-700">{{ d.name }} <span class="font-mono text-xs text-slate-400">{{ d.code }}</span></p>
                                 <button v-if="canManage" class="rounded p-1 text-slate-400 hover:text-brand-700" @click="open('department', d)"><PencilSquareIcon class="h-3.5 w-3.5" /></button>
-                                <span class="mr-auto flex items-center gap-1 text-xs text-slate-500"><BookOpenIcon class="h-4 w-4" /> {{ d.courses }} مادة</span>
+                                <span class="ms-auto flex items-center gap-1 text-xs text-slate-500"><BookOpenIcon class="h-4 w-4" /> {{ d.courses }} مادة</span>
                                 <button v-if="canManage" class="btn-ghost btn-sm" @click="open('program', null, { department_id: d.id })"><PlusIcon class="h-3.5 w-3.5" /> برنامج</button>
                             </div>
                             <div v-for="p in d.programs" :key="p.id" class="mb-2 rounded-xl border border-slate-100 bg-slate-50/50 p-4 last:mb-0" :class="!p.active && 'opacity-60'">
@@ -77,7 +77,7 @@ const makeCurrent = (y) => confirm(`جعل ${y.name} السنة الحالية؟
                                     <Badge tone="brand">{{ systems[p.system] }}</Badge>
                                     <Badge tone="slate">{{ p.years }} سنوات</Badge>
                                     <button v-if="canManage" class="rounded p-1 text-slate-400 hover:text-brand-700" @click="open('program', p)"><PencilSquareIcon class="h-3.5 w-3.5" /></button>
-                                    <span class="mr-auto flex items-center gap-1 text-xs text-slate-500"><UsersIcon class="h-4 w-4" /> {{ p.students }}</span>
+                                    <span class="ms-auto flex items-center gap-1 text-xs text-slate-500"><UsersIcon class="h-4 w-4" /> {{ p.students }}</span>
                                 </div>
                                 <div class="mt-3 flex flex-wrap gap-2">
                                     <Link v-for="v in p.curricula" :key="v.id" :href="route('curricula.show', v.id)" class="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-brand-300 hover:text-brand-800">
@@ -106,7 +106,7 @@ const makeCurrent = (y) => confirm(`جعل ${y.name} السنة الحالية؟
                         <ul class="space-y-2">
                             <li v-for="t in y.terms" :key="t.id" class="flex items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm">
                                 <div><p class="font-semibold">{{ t.name }}</p><p v-if="t.starts" class="ltr text-[11px] tabular-nums text-slate-400">{{ t.starts }} → {{ t.ends }}</p></div>
-                                <select v-if="canManage" :value="t.status" class="rounded-lg border-slate-200 py-1 pl-7 pr-2 text-xs font-semibold" @change="setTerm(t, $event.target.value)">
+                                <select v-if="canManage" :value="t.status" class="rounded-lg border-slate-200 py-1 pe-7 ps-2 text-xs font-semibold" @change="setTerm(t, $event.target.value)">
                                     <option v-for="s in termStatuses" :key="s" :value="s">{{ termLabel[s] }}</option>
                                 </select>
                                 <Badge v-else :tone="termTone[t.status]">{{ termLabel[t.status] }}</Badge>

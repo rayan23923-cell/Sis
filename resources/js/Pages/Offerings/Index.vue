@@ -27,8 +27,8 @@ const fill = (o) => Math.min(100, Math.round((o.students / Math.max(1, o.capacit
 
         <div class="card mb-6 grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-5">
             <div class="relative lg:col-span-2">
-                <MagnifyingGlassIcon class="pointer-events-none absolute right-3 top-2.5 h-5 w-5 text-slate-400" />
-                <input v-model="f.q" type="search" class="input pr-10" placeholder="اسم المادة أو رمزها" />
+                <MagnifyingGlassIcon class="pointer-events-none absolute start-3 top-2.5 h-5 w-5 text-slate-400" />
+                <input v-model="f.q" type="search" class="input ps-10" placeholder="اسم المادة أو رمزها" />
             </div>
             <select v-model="f.term" class="input"><option value="">الفصول الحالية</option><option v-for="t in terms" :key="t.id" :value="t.id">{{ t.name }}</option></select>
             <select v-model="f.college" class="input"><option value="">كل الكليات</option><option v-for="c in colleges" :key="c.id" :value="c.id">{{ c.name_ar }}</option></select>
@@ -51,7 +51,7 @@ const fill = (o) => Math.min(100, Math.round((o.students / Math.max(1, o.capacit
                 <p class="mt-2 text-xs text-slate-500">{{ o.department }}<span v-if="o.stage"> · المرحلة {{ o.stage }}</span> · شعبة {{ o.section }}</p>
                 <div class="mt-4 flex items-center gap-2 text-sm text-slate-600">
                     <UserIcon class="h-4 w-4 text-slate-400" /><span class="truncate">{{ o.teacher ?? 'لم يُحدد التدريسي' }}</span>
-                    <Badge v-if="o.mine" tone="brand" class="mr-auto">مادتي</Badge>
+                    <Badge v-if="o.mine" tone="brand" class="ms-auto">مادتي</Badge>
                 </div>
                 <div class="mt-auto pt-4">
                     <div class="mb-1 flex justify-between text-xs text-slate-500"><span class="flex items-center gap-1"><UsersIcon class="h-3.5 w-3.5" /> {{ o.students }} / {{ o.capacity }}</span><span>{{ roundName(o.round) }}</span></div>

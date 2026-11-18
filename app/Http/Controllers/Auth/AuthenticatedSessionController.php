@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Http\Middleware\SetLocale;
 use App\Http\Requests\Auth\LoginRequest;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -32,6 +33,9 @@ class AuthenticatedSessionController extends Controller
         $request->authenticate();
 
         $request->session()->regenerate();
+        if (in_array($request->session()->get('locale'), SetLocale::LOCALES, true)) {
+            $request->user()->update(['locale' => $request->session()->get('locale')]); // the language chosen on the sign-in page
+        }
 
         return redirect()->intended(route('dashboard', absolute: false));
     }

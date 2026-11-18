@@ -16,9 +16,20 @@ use App\Http\Controllers\StructureController;
 use App\Http\Controllers\StudentAccountController;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\UserController;
+use App\Http\Middleware\SetLocale;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Validation\Rule;
 
 Route::redirect('/', '/dashboard');
+
+Route::post('/locale', function (Request $request) {
+    $locale = $request->validate(['locale' => ['required', Rule::in(SetLocale::LOCALES)]])['locale'];
+    $request->session()->put('locale', $locale);
+    $request->user()?->update(['locale' => $locale]);
+
+    return back();
+})->name('locale');
 
 Route::middleware(['auth', 'active', 'password.changed', 'staff'])->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');

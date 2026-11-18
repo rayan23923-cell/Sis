@@ -73,17 +73,17 @@ const stateLabel = { ok: 'جاهز', duplicate: 'مشابه لطالب موجو�
         <!-- step 2: preview -->
         <template v-else>
             <div class="mb-6 grid gap-4 sm:grid-cols-4">
-                <button class="card p-4 text-right transition" :class="filter === 'all' && 'ring-2 ring-brand-500'" @click="filter = 'all'"><p class="text-sm text-slate-500">مجموع السطور</p><p class="text-2xl font-extrabold tabular-nums">{{ preview.rows.length }}</p></button>
-                <button class="card p-4 text-right transition" :class="filter === 'ok' && 'ring-2 ring-emerald-500'" @click="filter = 'ok'"><p class="text-sm text-slate-500">جاهز للقبول</p><p class="text-2xl font-extrabold tabular-nums text-emerald-600">{{ counts.ok }}</p></button>
-                <button class="card p-4 text-right transition" :class="filter === 'duplicate' && 'ring-2 ring-amber-500'" @click="filter = 'duplicate'"><p class="text-sm text-slate-500">مشابه لطالب موجود</p><p class="text-2xl font-extrabold tabular-nums text-amber-600">{{ counts.duplicate }}</p></button>
-                <button class="card p-4 text-right transition" :class="filter === 'error' && 'ring-2 ring-rose-500'" @click="filter = 'error'"><p class="text-sm text-slate-500">أخطاء (لن تُحفظ)</p><p class="text-2xl font-extrabold tabular-nums text-rose-600">{{ counts.error }}</p></button>
+                <button class="card p-4 text-start transition" :class="filter === 'all' && 'ring-2 ring-brand-500'" @click="filter = 'all'"><p class="text-sm text-slate-500">مجموع السطور</p><p class="text-2xl font-extrabold tabular-nums">{{ preview.rows.length }}</p></button>
+                <button class="card p-4 text-start transition" :class="filter === 'ok' && 'ring-2 ring-emerald-500'" @click="filter = 'ok'"><p class="text-sm text-slate-500">جاهز للقبول</p><p class="text-2xl font-extrabold tabular-nums text-emerald-600">{{ counts.ok }}</p></button>
+                <button class="card p-4 text-start transition" :class="filter === 'duplicate' && 'ring-2 ring-amber-500'" @click="filter = 'duplicate'"><p class="text-sm text-slate-500">مشابه لطالب موجود</p><p class="text-2xl font-extrabold tabular-nums text-amber-600">{{ counts.duplicate }}</p></button>
+                <button class="card p-4 text-start transition" :class="filter === 'error' && 'ring-2 ring-rose-500'" @click="filter = 'error'"><p class="text-sm text-slate-500">أخطاء (لن تُحفظ)</p><p class="text-2xl font-extrabold tabular-nums text-rose-600">{{ counts.error }}</p></button>
             </div>
 
             <div class="card">
                 <div class="flex flex-wrap items-center gap-3 border-b border-slate-100 p-4 text-sm">
                     <span class="font-bold text-slate-800">{{ preview.program }}</span>
                     <span class="text-slate-500">العام <span class="ltr">{{ preview.year }}</span> · المرحلة {{ preview.stage }}</span>
-                    <Link :href="route('students.import')" class="btn-ghost mr-auto">ملف آخر</Link>
+                    <Link :href="route('students.import')" class="btn-ghost ms-auto">ملف آخر</Link>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="table-base">

@@ -29,13 +29,13 @@ const studentRows = computed(() => Object.entries(props.stats.byStudentStatus ??
 
 <template>
     <AppLayout title="لوحة المتابعة">
-        <div class="mb-6 overflow-hidden rounded-3xl bg-gradient-to-l from-brand-800 via-brand-900 to-brand-950 p-6 text-white shadow-lg sm:p-8">
+        <div class="mb-6 overflow-hidden rounded-3xl rtl:bg-gradient-to-l ltr:bg-gradient-to-r from-brand-800 via-brand-900 to-brand-950 p-6 text-white shadow-lg sm:p-8">
             <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <p class="text-sm font-medium text-brand-200">{{ greeting }}،</p>
                     <h1 class="mt-1 text-2xl font-extrabold sm:text-3xl">{{ page.props.auth.user.name }}</h1>
                     <p class="mt-2 text-sm text-brand-200">العام الدراسي <span class="ltr">{{ year ?? '—' }}</span>
-                        <span v-for="t in terms" :key="t.id" class="mr-2 inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-0.5 text-xs font-semibold text-white">{{ t.name_ar }}</span>
+                        <span v-for="t in terms" :key="t.id" class="ms-2 inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-0.5 text-xs font-semibold text-white">{{ t.name_ar }}</span>
                     </p>
                 </div>
                 <div class="flex gap-2">

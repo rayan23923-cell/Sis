@@ -48,7 +48,7 @@ const roleErrors = computed(() => Object.entries(form.errors).filter(([k]) => k.
 
         <div class="card">
             <div class="grid gap-3 border-b border-slate-100 p-4 sm:grid-cols-4">
-                <div class="relative sm:col-span-2"><MagnifyingGlassIcon class="pointer-events-none absolute right-3 top-2.5 h-5 w-5 text-slate-400" /><input v-model="f.q" class="input pr-10" placeholder="الاسم أو البريد" /></div>
+                <div class="relative sm:col-span-2"><MagnifyingGlassIcon class="pointer-events-none absolute start-3 top-2.5 h-5 w-5 text-slate-400" /><input v-model="f.q" class="input ps-10" placeholder="الاسم أو البريد" /></div>
                 <select v-model="f.role" class="input"><option value="">كل الأدوار</option><option v-for="(l, k) in roles" :key="k" :value="k">{{ l }}</option></select>
                 <select v-model="f.status" class="input"><option value="">كل الحسابات</option><option value="active">فعالة</option><option value="inactive">معطلة</option></select>
             </div>

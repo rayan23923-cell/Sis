@@ -131,9 +131,9 @@ const passedCount = computed(() => props.courses.filter((c) => c.result?.status 
                     </div>
 
                     <div v-else class="p-5">
-                        <ol class="relative space-y-6 border-r-2 border-slate-100 pr-6">
+                        <ol class="relative space-y-6 border-s-2 border-slate-100 ps-6">
                             <li v-for="h in history" :key="h.id" class="relative">
-                                <span class="absolute -right-[31px] top-1 h-3.5 w-3.5 rounded-full border-2 border-white bg-brand-500 ring-2 ring-brand-100" />
+                                <span class="absolute -start-[31px] top-1 h-3.5 w-3.5 rounded-full border-2 border-white bg-brand-500 ring-2 ring-brand-100" />
                                 <div class="flex flex-wrap items-center gap-2">
                                     <Badge v-if="h.from" :map="studentStatus" :value="h.from" /><span v-if="h.from" class="text-slate-400">←</span>
                                     <Badge :map="studentStatus" :value="h.to" dot />

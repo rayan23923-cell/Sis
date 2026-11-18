@@ -6,6 +6,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\ImportController;
+use App\Http\Controllers\MasterSheetController;
 use App\Http\Controllers\OfferingAdminController;
 use App\Http\Controllers\OfferingController;
 use App\Http\Controllers\OrderController;
@@ -119,6 +120,9 @@ Route::middleware(['auth', 'active', 'password.changed', 'staff'])->group(functi
     Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
 
     Route::get('/audit', [AuditController::class, 'index'])->name('audit.index');
+    Route::get('/master-sheet', [MasterSheetController::class, 'show'])->name('master-sheet.show');
+    Route::get('/master-sheet/pdf', [MasterSheetController::class, 'pdf'])->name('master-sheet.pdf');
+    Route::get('/master-sheet/excel', [MasterSheetController::class, 'excel'])->name('master-sheet.excel');
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
     Route::get('/reports/export', [ReportController::class, 'export'])->name('reports.export');
 

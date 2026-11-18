@@ -4,7 +4,7 @@ import { computed, ref } from 'vue';
 import { Head, Link, usePage } from '@inertiajs/vue3';
 import FlashToast from '@/Components/FlashToast.vue';
 import {
-    AcademicCapIcon, BanknotesIcon, ChartBarIcon, ArrowRightOnRectangleIcon, Bars3Icon, BookOpenIcon, BuildingLibraryIcon,
+    AcademicCapIcon, BanknotesIcon, TableCellsIcon, ChartBarIcon, ArrowRightOnRectangleIcon, Bars3Icon, BookOpenIcon, BuildingLibraryIcon,
     ClipboardDocumentCheckIcon, DocumentTextIcon, ExclamationTriangleIcon, HomeIcon, ScaleIcon,
     ShieldCheckIcon, UserCircleIcon, UsersIcon, XMarkIcon, ArrowTrendingUpIcon,
 } from '@heroicons/vue/24/outline';
@@ -23,6 +23,7 @@ const nav = computed(() => [
     { label: 'الطلبة', route: 'students.index', match: 'students.*', icon: AcademicCapIcon, show: can.value.students },
     { label: 'المواد والدرجات', route: 'offerings.index', match: 'offerings.*', icon: ClipboardDocumentCheckIcon, show: true },
     { label: 'نتائج نهاية السنة', route: 'progression.index', match: 'progression.*', icon: ArrowTrendingUpIcon, show: can.value.progression },
+    { label: 'الماستر شيت', route: 'master-sheet.show', match: 'master-sheet.*', icon: TableCellsIcon, show: can.value.progression },
     { label: 'التقارير والإحصاءات', route: 'reports.index', match: 'reports.*', icon: ChartBarIcon, show: can.value.reports },
     { label: 'الهيكل والمناهج', route: 'structure.index', match: ['structure.*', 'curricula.*'], icon: BuildingLibraryIcon, show: true },
     { section: 'الشؤون المالية' },

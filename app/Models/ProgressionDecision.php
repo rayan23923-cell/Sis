@@ -18,9 +18,9 @@ class ProgressionDecision extends Model
         'graduate' => 'متخرج',
     ];
 
-    protected $fillable = ['student_program_id', 'academic_year_id', 'stage', 'gpa', 'courses_count', 'failed_count', 'credits_earned', 'failed_courses', 'decision', 'policy_snapshot', 'status', 'administrative_order_id', 'created_by', 'applied_at'];
+    protected $fillable = ['student_program_id', 'academic_year_id', 'stage', 'gpa', 'courses_count', 'failed_count', 'credits_earned', 'failed_courses', 'decision', 'policy_snapshot', 'status', 'administrative_order_id', 'created_by', 'applied_at', 'decision_awards'];
 
-    protected $casts = ['failed_courses' => 'array', 'policy_snapshot' => 'array', 'gpa' => 'float', 'credits_earned' => 'float', 'applied_at' => 'datetime'];
+    protected $casts = ['failed_courses' => 'array', 'policy_snapshot' => 'array', 'decision_awards' => 'array', 'gpa' => 'float', 'credits_earned' => 'float', 'applied_at' => 'datetime'];
 
     protected static function booted(): void
     {

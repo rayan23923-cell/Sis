@@ -20,6 +20,7 @@ class AcademicPolicy extends Model
         'gpa' => 'المعدل',
         'progression' => 'الترفيع والتحميل',
         'attendance' => 'الغياب والإنذارات',
+        'decision' => 'القرار وخصم الدور الثاني',
     ];
 
     protected $fillable = ['type', 'name_ar', 'version', 'executor', 'parameters', 'study_system', 'scope_type', 'scope_id', 'effective_from', 'effective_to', 'source_reference', 'approving_authority', 'is_official', 'status', 'changelog', 'created_by', 'approved_by', 'approved_at'];

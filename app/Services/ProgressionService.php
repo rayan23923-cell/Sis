@@ -24,7 +24,7 @@ use Illuminate\Support\Facades\DB;
  */
 class ProgressionService
 {
-    public function __construct(private readonly PolicyResolver $policies) {}
+    public function __construct(private readonly PolicyResolver $policies, private readonly MasterSheetService $masterSheet) {}
 
     /**
      * Preview for every current student of the stage, without saving.
@@ -36,12 +36,15 @@ class ProgressionService
         $policies = $this->policies->forProgram($program, $year->ends_on);
         $finalStage = $stage >= $program->duration_years;
         $existing = ProgressionDecision::where('academic_year_id', $year->id)->get()->keyBy('student_program_id');
+        // With a "decision" policy (annual master sheet) failures and the average come from the master sheet:
+        // after the decision, with the second-round deduction.
+        $sheet = $policies->has('decision') ? collect($this->masterSheet->build($program, $stage, $year, 2)['students'])->keyBy('student_program_id') : null;
 
         return StudentProgram::where('program_id', $program->id)->where('stage', $stage)->where('is_current', true)
             ->whereHas('student', fn ($s) => $s->where('status', 'active'))
             ->with('student:id,name_ar,university_number')->get()
             ->sortBy(fn ($sp) => $sp->student->name_ar)->values()
-            ->map(function (StudentProgram $sp) use ($year, $policies, $finalStage, $existing) {
+            ->map(function (StudentProgram $sp) use ($year, $policies, $finalStage, $existing, $sheet) {
                 $enrollments = Enrollment::where('student_program_id', $sp->id)->where('status', '!=', 'withdrawn')
                     ->whereHas('offering.term', fn ($t) => $t->where('academic_year_id', $year->id))
                     ->with(['offering.course', 'currentResult'])->get();
@@ -58,10 +61,37 @@ class ProgressionService
                     'credits' => (float) $done->sum(fn ($e) => $e->currentResult->credits_earned),
                     'gpa' => null, 'decision' => null, 'problem' => null,
                     'saved' => $existing->get($sp->id)?->only(['id', 'decision', 'status']),
+                    'awards' => [], 'result' => null,
                 ];
 
                 if ($enrollments->isEmpty()) {
                     $row['problem'] = 'لا توجد مواد مسجلة في هذه السنة.';
+
+                    return $row;
+                }
+                if ($sheet && ($ms = $sheet->get($sp->id))) {
+                    $notLocked = collect($ms['cells'])->filter()->contains(fn ($c) => ! $c['locked']);
+                    if (! $ms['complete'] || $notLocked) {
+                        $row['problem'] = 'نتائج غير مكتملة أو غير مقفلة في الماستر شيت.';
+
+                        return $row;
+                    }
+                    $row['failed'] = collect($ms['failed'])->map(fn ($f) => ['code' => $f['code'], 'name' => $f['name']])->values();
+                    $row['gpa'] = $ms['gpa'];
+                    $row['awards'] = $ms['awards'];
+                    $row['result'] = $ms['result'];
+                    if (! $policies->has('progression')) {
+                        $row['problem'] = 'لا توجد سياسة ترفيع معتمدة لنظام هذا البرنامج. أدخلها من صفحة السياسات.';
+
+                        return $row;
+                    }
+                    if (collect($ms['failed'])->contains('carried', true)) {
+                        // the master sheet flags this as a possible dismissal (ترقين قيد); the committee decides
+                        $row['problem'] = 'راسب في مادة محمّلة. يُعرض على اللجنة الامتحانية (احتمال ترقين القيد).';
+
+                        return $row;
+                    }
+                    $row['decision'] = (new Progression($policies->get('progression')))->decide(count($ms['failed']), $finalStage);
 
                     return $row;
                 }
@@ -106,7 +136,7 @@ class ProgressionService
                 ProgressionDecision::updateOrCreate(
                     ['student_program_id' => $row['student_program_id'], 'academic_year_id' => $year->id],
                     ['stage' => $stage, 'gpa' => $row['gpa'], 'courses_count' => $row['courses'], 'failed_count' => count($row['failed']),
-                        'credits_earned' => $row['credits'], 'failed_courses' => $row['failed']->all(), 'decision' => $row['decision'],
+                        'credits_earned' => $row['credits'], 'failed_courses' => $row['failed']->all(), 'decision' => $row['decision'], 'decision_awards' => $row['awards'] ?: null,
                         'policy_snapshot' => $snapshot, 'status' => 'draft', 'created_by' => $user->id],
                 );
                 $n++;

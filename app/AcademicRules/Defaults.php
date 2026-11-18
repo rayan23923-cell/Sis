@@ -65,6 +65,25 @@ final class Defaults
             }
         }
 
+        // The "قرار" and the second-round deduction, with the values of the master-sheet template the
+        // university shared (decision of 5 marks, given wherever the student benefits; carried courses first;
+        // then fewer failures, more units, closest to the specialty, lower coursework). The amount changes
+        // every year with the ministry's instructions, so this stays unofficial until entered from them.
+        foreach (['annual', 'semester'] as $system) {
+            $out[] = [
+                'type' => 'decision', 'study_system' => $system, 'executor' => 'decision@1',
+                'name_ar' => 'القرار وخصم الدور الثاني',
+                'parameters' => [
+                    'amounts' => ['1' => 5, '2' => 0],
+                    'modes' => ['1' => 'benefit', '2' => 'benefit'],
+                    'carried_first' => true,
+                    'priorities' => ['reduce_failures', 'more_units', 'closest_specialty', 'lower_coursework'],
+                    'pass_mark' => 50,
+                    'resit_deduction' => 10,
+                ],
+            ];
+        }
+
         // Absence warnings. The thresholds are placeholders until the university's instructions are
         // entered; with "limit" left null the system only warns and never fails or bars a student.
         $out[] = [

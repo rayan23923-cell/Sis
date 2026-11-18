@@ -17,7 +17,7 @@ const available = computed(() => props.allCourses.filter((c) => !inCurriculum.va
 const prereqOptions = computed(() => props.stages.flatMap((s) => s.courses).filter((c) => true));
 
 const showAdd = ref(false);
-const addForm = useForm({ course_id: '', stage: 1, term_no: props.curriculum.system === 'annual' ? '' : 1, is_mandatory: true, prerequisites: [] });
+const addForm = useForm({ course_id: '', stage: 1, term_no: props.curriculum.system === 'annual' ? '' : 1, is_mandatory: true, prerequisites: [], specialty_rank: '' });
 const add = () => addForm.post(route('curricula.courses.store', props.curriculum.id), { preserveScroll: true, onSuccess: () => { addForm.reset('course_id', 'prerequisites'); } });
 const remove = (c) => confirm(`إزالة ${c.name} من المسودة؟`) && router.delete(route('curricula.courses.destroy', [props.curriculum.id, c.id]), { preserveScroll: true });
 const courseIdByCode = (code) => props.allCourses.find((c) => c.code === code)?.id;
@@ -78,6 +78,7 @@ const newVersion = () => router.post(route('curricula.version', props.curriculum
                         <select v-model="addForm.course_id" class="input" required><option value="" disabled>اختر من دليل مواد الكلية</option><option v-for="c in available" :key="c.id" :value="c.id">{{ c.code }} — {{ c.name_ar }} ({{ c.credit_hours }} وحدة)</option></select>
                         <InputError :message="addForm.errors.course_id" class="mt-1" /></div>
                     <div><label class="label">المرحلة</label><select v-model="addForm.stage" class="input"><option v-for="n in curriculum.stages_max" :key="n" :value="n">{{ n }}</option></select></div>
+                    <div><label class="label">القرب من التخصص</label><input v-model="addForm.specialty_rank" type="number" min="1" max="30" class="input" placeholder="1 = الأقرب" title="يستخدم في أولويات القرار في الماستر شيت" /></div>
                     <div><label class="label">الفصل</label><select v-model="addForm.term_no" class="input"><option value="">سنوية</option><option :value="1">الأول</option><option :value="2">الثاني</option></select></div>
                     <div class="sm:col-span-2"><label class="label">المتطلبات السابقة</label>
                         <select v-model="addForm.prerequisites" multiple class="input h-28"><option v-for="c in prereqOptions" :key="c.code" :value="courseIdByCode(c.code)">{{ c.code }} — {{ c.name }}</option></select>

@@ -135,11 +135,13 @@ class StructureAdminController extends Controller
             'course_id' => ['required', 'exists:courses,id', Rule::unique('curriculum_courses')->where('curriculum_version_id', $curriculum->id)],
             'stage' => ['required', 'integer', 'min:1', 'max:7'], 'term_no' => ['nullable', 'integer', 'in:1,2'],
             'is_mandatory' => ['boolean'], 'prerequisites' => ['array'], 'prerequisites.*' => ['exists:courses,id'],
+            'specialty_rank' => ['nullable', 'integer', 'min:1', 'max:30'],
         ], ['course_id.unique' => 'المادة موجودة في المنهج.'], ['course_id' => 'المادة', 'stage' => 'المرحلة']);
         $course = Course::findOrFail($data['course_id']);
         $cc = $curriculum->courses()->create([
             'course_id' => $course->id, 'stage' => $data['stage'], 'term_no' => $data['term_no'] ?? null,
             'is_mandatory' => $data['is_mandatory'] ?? true, 'credit_hours' => $course->credit_hours, 'ects' => $course->ects,
+            'specialty_rank' => $data['specialty_rank'] ?? null,
         ]);
         $cc->prerequisites()->sync(array_diff($data['prerequisites'] ?? [], [$course->id]));
 

@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class CurriculumCourse extends Model
 {
-    protected $fillable = ['curriculum_version_id', 'course_id', 'stage', 'term_no', 'is_mandatory', 'credit_hours', 'ects'];
+    protected $fillable = ['curriculum_version_id', 'course_id', 'stage', 'term_no', 'is_mandatory', 'credit_hours', 'ects', 'specialty_rank'];
 
     protected $casts = ['is_mandatory' => 'boolean', 'credit_hours' => 'float', 'ects' => 'float'];
 

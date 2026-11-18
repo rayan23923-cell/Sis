@@ -26,6 +26,16 @@ const sum = (round) => {
     const replaced = new Set(list.filter((c) => c.exam_round > 1 && c.exam_round <= round).map((c) => c.code.replace(/_r\d+$/, '')));
     return list.filter((c) => (c.exam_round === 1 && (round === 1 || !replaced.has(c.code))) || (c.exam_round > 1 && c.exam_round <= round)).reduce((s, c) => s + Number(c.weight || 0), 0);
 };
+// The annual distribution used by the Iraqi master sheet: coursework 40 (first term 10, mid-year 20, second term 10) and a final of 60.
+const masterSheet = () => {
+    comps.components = [
+        { code: 'term1', name_ar: 'الفصل الأول', weight: 10, max_mark: 10, exam_round: 1 },
+        { code: 'midyear', name_ar: 'نصف السنة', weight: 20, max_mark: 20, exam_round: 1 },
+        { code: 'term2', name_ar: 'الفصل الثاني', weight: 10, max_mark: 10, exam_round: 1 },
+        { code: 'final', name_ar: 'الامتحان النهائي', weight: 60, max_mark: 60, exam_round: 1 },
+        { code: 'final_r2', name_ar: 'امتحان الدور الثاني', weight: 60, max_mark: 60, exam_round: 2 },
+    ];
+};
 const rounds = () => [...new Set(comps.components.map((c) => Number(c.exam_round)))].sort();
 const saveComps = () => comps.put(route('offerings.components', props.offering.id), { preserveScroll: true, onSuccess: () => emit('close') });
 
@@ -71,7 +81,10 @@ const add = (s) => router.post(route('offerings.students.store', props.offering.
                         <button type="button" class="rounded-lg p-2 text-slate-400 hover:text-rose-600" :disabled="!canEditComponents" @click="comps.components.splice(i, 1)"><TrashIcon class="h-4 w-4" /></button>
                     </div>
                 </div>
-                <button v-if="canEditComponents" type="button" class="btn-ghost btn-sm mt-2" @click="comps.components.push({ code: '', name_ar: '', weight: 0, max_mark: 100, exam_round: 1 })"><PlusIcon class="h-4 w-4" /> مكوّن</button>
+                <div v-if="canEditComponents" class="mt-2 flex flex-wrap gap-2">
+                    <button type="button" class="btn-ghost btn-sm" @click="comps.components.push({ code: '', name_ar: '', weight: 0, max_mark: 100, exam_round: 1 })"><PlusIcon class="h-4 w-4" /> مكوّن</button>
+                    <button type="button" class="btn-ghost btn-sm" title="الفصل الأول 10، نصف السنة 20، الفصل الثاني 10، النهائي 60" @click="masterSheet">توزيع الماستر شيت (10 + 20 + 10 + 60)</button>
+                </div>
                 <div class="mt-3 flex flex-wrap gap-2 text-sm">
                     <span v-for="r in rounds()" :key="r" class="rounded-lg px-3 py-1 font-bold" :class="Math.abs(sum(r) - 100) < 0.01 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'">مجموع الدور {{ r }}: {{ sum(r) }}%</span>
                 </div>

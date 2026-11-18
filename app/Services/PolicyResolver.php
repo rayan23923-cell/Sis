@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\AcademicRules\Policy;
 use App\AcademicRules\PolicySet;
 use App\Models\AcademicPolicy;
 use App\Models\Program;
@@ -15,6 +16,9 @@ use Illuminate\Support\Collection;
  */
 class PolicyResolver
 {
+    /** Policies that do not take part in computing results, so they never change a result's snapshot. */
+    public const NON_RESULT_TYPES = ['attendance'];
+
     /** @var array<string, PolicySet> */
     private array $cache = [];
 
@@ -23,7 +27,14 @@ class PolicyResolver
         $on ??= now();
         $key = $program->id.'@'.$on->toDateString();
 
-        return $this->cache[$key] ??= new PolicySet($this->candidates($program, $on)->map->toRule());
+        return $this->cache[$key] ??= new PolicySet($this->candidates($program, $on)
+            ->reject(fn (AcademicPolicy $p) => in_array($p->type, self::NON_RESULT_TYPES, true))->map->toRule());
+    }
+
+    /** The policy of one type that applies to a program, or null. */
+    public function one(Program $program, string $type, ?Carbon $on = null): ?Policy
+    {
+        return $this->candidates($program, $on ?? now())->firstWhere('type', $type)?->toRule();
     }
 
     /** @return Collection<int, AcademicPolicy> one policy per type */

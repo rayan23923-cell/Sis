@@ -126,11 +126,15 @@ const passedCount = computed(() => props.courses.filter((c) => c.result?.status 
                         </div>
                         <div class="overflow-x-auto">
                             <table v-if="courses.length" class="table-base">
-                                <thead><tr><th>المادة</th><th>الفصل</th><th>الدرجة</th><th>التقدير</th><th>النتيجة</th></tr></thead>
+                                <thead><tr><th>المادة</th><th>الفصل</th><th>الغياب</th><th>الدرجة</th><th>التقدير</th><th>النتيجة</th></tr></thead>
                                 <tbody class="divide-y divide-slate-100">
                                     <tr v-for="c in courses" :key="c.id">
                                         <td><Link :href="route('offerings.show', c.offering_id)" class="font-bold text-slate-800 hover:text-brand-700">{{ c.name }}</Link><p class="text-xs text-slate-400">{{ c.code }}<span v-if="c.attempt > 1"> · محاولة {{ c.attempt }}</span><span v-if="c.carried"> · محملة</span></p></td>
                                         <td class="text-xs text-slate-500">{{ c.term }}</td>
+                                        <td>
+                                            <template v-if="c.absence"><span class="font-bold tabular-nums" :class="c.absence.level ? 'text-rose-600' : 'text-slate-700'">{{ c.absence.percent }}%</span><Badge v-if="c.absence.warning" :tone="c.absence.level > 1 ? 'rose' : 'amber'" class="ms-1">{{ c.absence.warning }}</Badge></template>
+                                            <span v-else class="text-xs text-slate-300">—</span>
+                                        </td>
                                         <td class="text-lg font-extrabold tabular-nums">{{ c.result?.mark ?? '—' }}</td>
                                         <td>{{ c.result?.grade ?? '—' }}</td>
                                         <td>

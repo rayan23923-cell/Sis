@@ -69,4 +69,9 @@ class CourseOffering extends Model
 
         return $q->where(fn ($w) => $w->whereHas('course', fn ($c) => $c->visibleTo($user))->orWhere('teacher_id', $user->id));
     }
+
+    public function attendanceSessions(): HasMany
+    {
+        return $this->hasMany(AttendanceSession::class)->orderBy('held_on')->orderBy('period');
+    }
 }

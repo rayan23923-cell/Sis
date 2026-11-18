@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\AcademicRules\Executors\Attendance;
 use App\AcademicRules\Executors\ExamRounds;
 use App\AcademicRules\Executors\Gpa;
 use App\AcademicRules\Executors\GradeScale;
@@ -29,6 +30,7 @@ class PolicyController extends Controller
         'rounds@1' => ExamRounds::class,
         'gpa@1' => Gpa::class,
         'progression@1' => Progression::class,
+        'attendance@1' => Attendance::class,
     ];
 
     public const SYSTEMS = ['bologna' => 'بولونيا', 'semester' => 'فصلي', 'annual' => 'سنوي', 'any' => 'جميع الأنظمة'];

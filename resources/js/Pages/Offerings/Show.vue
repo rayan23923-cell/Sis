@@ -12,10 +12,10 @@ import EmptyState from '@/Components/EmptyState.vue';
 import { offeringStatus, outcome, resultStatus, roundName, systems } from '@/lib/labels';
 import {
     ArrowUturnRightIcon, CalculatorIcon, CheckBadgeIcon, CheckIcon, CloudArrowUpIcon, ExclamationTriangleIcon,
-    LockClosedIcon, MagnifyingGlassIcon, PrinterIcon, ArrowDownTrayIcon, ArrowUpTrayIcon, Cog6ToothIcon, UserMinusIcon, PencilSquareIcon, PlusIcon, ArrowPathIcon, UsersIcon, InformationCircleIcon,
+    LockClosedIcon, MagnifyingGlassIcon, PrinterIcon, ArrowDownTrayIcon, ArrowUpTrayIcon, Cog6ToothIcon, UserMinusIcon, PencilSquareIcon, PlusIcon, ArrowPathIcon, UsersIcon, InformationCircleIcon, CalendarDaysIcon,
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({ offering: Object, round: Number, components: Array, rows: Array, gradeScale: Array, official: Boolean, perm: Object, allComponents: Array, orders: Array, statuses: Object });
+const props = defineProps({ offering: Object, round: Number, components: Array, rows: Array, gradeScale: Array, official: Boolean, perm: Object, allComponents: Array, orders: Array, statuses: Object, attendance: Object, hasAttendance: Boolean });
 const page = usePage();
 
 // ---------- editable sheet ----------
@@ -168,6 +168,7 @@ const outcomeTone = { pass: 'text-emerald-700', fail: 'text-rose-700', resit: 't
                 </div>
             </template>
             <button v-if="perm.enroll && !rows.length" class="btn-secondary" @click="post('offerings.enroll')"><UsersIcon class="h-4 w-4" /> تسجيل طلبة المرحلة</button>
+            <Link :href="route('offerings.attendance', offering.id)" class="btn-secondary"><CalendarDaysIcon class="h-4 w-4" /> الحضور والغياب</Link>
             <button v-if="perm.manage" class="btn-secondary" @click="showManage = true"><Cog6ToothIcon class="h-4 w-4" /> إدارة الشعبة</button>
             <a v-if="rows.length" :href="route('offerings.sheet', { offering: offering.id, round })" target="_blank" class="btn-secondary"><PrinterIcon class="h-4 w-4" /> قائمة الدرجات PDF</a>
         </PageHeader>
@@ -254,7 +255,7 @@ const outcomeTone = { pass: 'text-emerald-700', fail: 'text-rose-700', resit: 't
                                     <td class="px-3 py-2 text-center text-xs tabular-nums text-slate-400">{{ r.idx + 1 }}</td>
                                     <td class="px-3 py-2">
                                         <Link :href="route('students.show', r.student_id)" class="font-bold text-slate-800 hover:text-brand-700">{{ r.name }}</Link>
-                                        <p class="font-mono text-[11px] text-slate-400">{{ r.number }}<span v-if="r.carried" class="font-sans"> · محملة</span><span v-if="r.attempt > 1" class="font-sans"> · محاولة {{ r.attempt }}</span></p>
+                                        <p class="font-mono text-[11px] text-slate-400">{{ r.number }}<span v-if="r.carried" class="font-sans"> · محملة</span><span v-if="r.attempt > 1" class="font-sans"> · محاولة {{ r.attempt }}</span><span v-if="hasAttendance && attendance[r.enrollment_id]?.percent" class="font-sans" :class="attendance[r.enrollment_id].level ? 'font-bold text-rose-600' : ''"> · غياب {{ attendance[r.enrollment_id].percent }}%</span></p>
                                     </td>
                                     <td v-for="c in components" :key="c.id" class="px-2 py-1.5 text-center">
                                         <div v-if="perm.edit && c.editable && !viewingPast" class="flex items-center justify-center gap-1">

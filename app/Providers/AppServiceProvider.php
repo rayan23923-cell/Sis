@@ -41,6 +41,9 @@ class AppServiceProvider extends ServiceProvider
             || CourseOffering::whereKey($o->id)->visibleTo($u)->exists());
         Gate::define('enter-marks', fn (User $u, CourseOffering $o) => $o->teacher_id === $u->id
             || ($u->hasRole('super_admin') && $o->teacher_id === null));
+        // The teacher takes attendance; the department head and the college registrar can fix a register.
+        Gate::define('take-attendance', fn (User $u, CourseOffering $o) => $o->teacher_id === $u->id
+            || $u->hasRoleIn($o->collegeId(), 'head', 'college_registrar', 'registrar'));
         Gate::define('approve-results', fn (User $u, CourseOffering $o) => $u->hasRoleIn($o->collegeId(), 'committee', 'dean'));
         Gate::define('view-reports', fn (User $u) => $u->hasRole('registrar', 'college_registrar', 'dean', 'auditor'));
         Gate::define('view-progression', fn (User $u) => $u->hasRole('registrar', 'college_registrar', 'dean', 'committee', 'head', 'auditor'));

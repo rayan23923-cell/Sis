@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Enrollment;
 use App\Models\Student;
+use App\Services\AttendanceService;
 use App\Services\Documents\TranscriptService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -13,7 +14,7 @@ use Inertia\Response;
 /** What a student sees: their record, locked results by year, current courses and their transcript. */
 class PortalController extends Controller
 {
-    public function home(Request $request, TranscriptService $transcripts): Response|RedirectResponse
+    public function home(Request $request, TranscriptService $transcripts, AttendanceService $attendance): Response|RedirectResponse
     {
         $student = Student::where('user_id', $request->user()->id)->first();
         if (! $student) {
@@ -25,16 +26,18 @@ class PortalController extends Controller
         $current = Enrollment::where('student_id', $student->id)->where('status', '!=', 'withdrawn')
             ->whereHas('offering.term.year', fn ($y) => $y->where('is_current', true))
             ->with(['offering.course', 'offering.term', 'offering.teacher:id,name', 'results' => fn ($q) => $q->where('is_current', true)->where('status', 'locked')])
-            ->get()->sortBy(fn ($e) => [$e->offering->term->code, $e->offering->course->code])->values()
-            ->map(function ($e) {
-                $r = $e->results->sortByDesc('exam_round')->first();
+            ->get()->sortBy(fn ($e) => [$e->offering->term->code, $e->offering->course->code])->values();
+        $absence = $attendance->forEnrollments($current);
+        $current = $current->map(function ($e) use ($absence) {
+            $r = $e->results->sortByDesc('exam_round')->first();
 
-                return [
-                    'code' => $e->offering->course->code, 'name' => $e->offering->course->name_ar, 'term' => $e->offering->term->name_ar,
-                    'teacher' => $e->offering->teacher?->name, 'credits' => (float) $e->offering->course->credit_hours, 'carried' => (bool) $e->is_carried,
-                    'result' => $r ? ['mark' => (float) $r->rounded_mark, 'grade' => $r->grade_name_ar, 'outcome' => $r->outcome, 'round' => $r->exam_round] : null,
-                ];
-            });
+            return [
+                'code' => $e->offering->course->code, 'name' => $e->offering->course->name_ar, 'term' => $e->offering->term->name_ar,
+                'teacher' => $e->offering->teacher?->name, 'credits' => (float) $e->offering->course->credit_hours, 'carried' => (bool) $e->is_carried,
+                'result' => $r ? ['mark' => (float) $r->rounded_mark, 'grade' => $r->grade_name_ar, 'outcome' => $r->outcome, 'round' => $r->exam_round] : null,
+                'absence' => $absence[$e->id]['sessions'] ? $absence[$e->id] : null,
+            ];
+        });
 
         return Inertia::render('Portal/Home', [
             'student' => [

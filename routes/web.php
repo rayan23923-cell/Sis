@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\AuditController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentController;
@@ -62,6 +63,10 @@ Route::middleware(['auth', 'active', 'password.changed', 'staff'])->group(functi
     Route::get('/offerings/{offering}/students/search', [OfferingAdminController::class, 'searchStudents'])->name('offerings.students.search');
     Route::post('/offerings/{offering}/students', [OfferingAdminController::class, 'enroll'])->name('offerings.students.store');
     Route::post('/offerings/{offering}/enrollments/{enrollment}/withdraw', [OfferingAdminController::class, 'withdraw'])->name('offerings.withdraw');
+    Route::get('/offerings/{offering}/attendance', [AttendanceController::class, 'show'])->name('offerings.attendance');
+    Route::post('/offerings/{offering}/attendance', [AttendanceController::class, 'store'])->name('offerings.attendance.store');
+    Route::put('/offerings/{offering}/attendance/{session}', [AttendanceController::class, 'update'])->name('offerings.attendance.update');
+    Route::delete('/offerings/{offering}/attendance/{session}', [AttendanceController::class, 'destroy'])->name('offerings.attendance.destroy');
     Route::get('/offerings/{offering}', [OfferingController::class, 'show'])->name('offerings.show');
     Route::post('/offerings/{offering}/marks', [OfferingController::class, 'saveMarks'])->name('offerings.marks');
     Route::post('/offerings/{offering}/compute', [OfferingController::class, 'compute'])->name('offerings.compute');

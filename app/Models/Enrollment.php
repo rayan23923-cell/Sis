@@ -46,4 +46,9 @@ class Enrollment extends Model
         // The live result of the latest exam round (round 2 overrides round 1).
         return $this->hasOne(FinalResult::class)->ofMany(['exam_round' => 'max', 'id' => 'max'], fn ($q) => $q->where('is_current', true));
     }
+
+    public function attendance(): HasMany
+    {
+        return $this->hasMany(AttendanceRecord::class);
+    }
 }

@@ -11,6 +11,7 @@ use App\Models\College;
 use App\Models\Course;
 use App\Models\CourseOffering;
 use App\Models\FinalResult;
+use App\Services\AttendanceService;
 use App\Services\EnrollmentService;
 use App\Services\GradebookService;
 use App\Services\PolicyResolver;
@@ -161,6 +162,8 @@ class OfferingController extends Controller
                 ? AdministrativeOrder::where('type', 'result_correction')->latest('issued_on')->limit(30)->get()->map(fn ($o) => ['id' => $o->id, 'label' => $o->reference().' — '.$o->title])
                 : [],
             'statuses' => CourseOffering::STATUSES,
+            'attendance' => app(AttendanceService::class)->summary($offering)->map(fn ($a) => ['percent' => $a['percent'], 'level' => $a['level'], 'warning' => $a['warning'], 'over_limit' => $a['over_limit']]),
+            'hasAttendance' => $offering->attendanceSessions()->exists(),
         ]);
     }
 

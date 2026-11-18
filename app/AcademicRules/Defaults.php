@@ -65,6 +65,22 @@ final class Defaults
             }
         }
 
+        // Absence warnings. The thresholds are placeholders until the university's instructions are
+        // entered; with "limit" left null the system only warns and never fails or bars a student.
+        $out[] = [
+            'type' => 'attendance', 'study_system' => 'any', 'executor' => 'attendance@1',
+            'name_ar' => 'الغياب والإنذارات',
+            'parameters' => [
+                'count_excused' => false,
+                'late_as_absence' => 0,
+                'warnings' => [
+                    ['percent' => 5, 'name_ar' => 'تنبيه', 'name_en' => 'Notice'],
+                    ['percent' => 10, 'name_ar' => 'إنذار', 'name_en' => 'Warning'],
+                ],
+                'limit' => null,
+            ],
+        ];
+
         return $out;
     }
 }

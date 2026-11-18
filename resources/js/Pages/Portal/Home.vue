@@ -66,6 +66,7 @@ const savePw = () => pw.put(route('password.update'), { preserveScroll: true, on
                     <div class="min-w-0 flex-1">
                         <p class="font-bold text-slate-800">{{ c.name }} <Badge v-if="c.carried" tone="amber">محمّلة</Badge></p>
                         <p class="text-xs text-slate-500"><span class="ltr font-mono">{{ c.code }}</span> · {{ c.term }} · {{ c.credits }} وحدة<span v-if="c.teacher"> · {{ c.teacher }}</span></p>
+                        <p v-if="c.absence" class="mt-0.5 text-xs" :class="c.absence.level ? 'font-bold text-rose-600' : 'text-slate-500'">الغياب {{ c.absence.percent }}% ({{ c.absence.absent }} محاضرة<span v-if="c.absence.excused">، بعذر {{ c.absence.excused }}</span>)<span v-if="c.absence.warning"> · {{ c.absence.warning }}</span></p>
                     </div>
                     <template v-if="c.result">
                         <div class="text-end"><p class="text-lg font-extrabold tabular-nums">{{ c.result.mark }}</p><p class="text-xs text-slate-500">{{ c.result.grade }}</p></div>

@@ -8,6 +8,7 @@ use App\Models\College;
 use App\Models\IssuedDocument;
 use App\Models\Program;
 use App\Models\Student;
+use App\Services\AttendanceService;
 use App\Services\StudentService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -126,6 +127,9 @@ class StudentController extends Controller
             $transitions->push(['to' => 'program_change', 'label' => 'تغيير قسم/برنامج', 'order_type' => 'program_change']);
         }
         $currentProgramId = $student->programs->firstWhere('is_current', true)?->program_id;
+        $absence = app(AttendanceService::class)->forEnrollments(
+            $student->enrollments->filter(fn ($e) => $e->status !== 'withdrawn' && $e->offering->term->year->is_current)
+        );
 
         return Inertia::render('Students/Show', [
             'student' => [
@@ -160,6 +164,7 @@ class StudentController extends Controller
                 'id' => $e->id, 'offering_id' => $e->course_offering_id,
                 'code' => $e->offering->course->code, 'name' => $e->offering->course->name_ar,
                 'term' => $e->offering->term->label(), 'attempt' => $e->attempt_no, 'carried' => $e->is_carried,
+                'absence' => isset($absence[$e->id]) && $absence[$e->id]['sessions'] ? $absence[$e->id] : null,
                 'result' => $e->currentResult ? [
                     'mark' => $e->currentResult->rounded_mark, 'grade' => $e->currentResult->grade_name_ar,
                     'code' => $e->currentResult->grade_code, 'outcome' => $e->currentResult->outcome,

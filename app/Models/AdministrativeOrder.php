@@ -20,6 +20,7 @@ class AdministrativeOrder extends Model
         'withdrawal' => 'انسحاب',
         'program_change' => 'تغيير قسم/برنامج',
         'result_correction' => 'تصحيح نتيجة',
+        'year_results' => 'إقرار نتائج نهاية السنة',
         'other' => 'أخرى',
     ];
 

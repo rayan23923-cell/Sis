@@ -7,6 +7,7 @@ use App\Http\Controllers\OfferingController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\PolicyController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ProgressionController;
 use App\Http\Controllers\StructureAdminController;
 use App\Http\Controllers\StructureController;
 use App\Http\Controllers\StudentController;
@@ -41,6 +42,10 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::post('/offerings/{offering}/decide', [OfferingController::class, 'decide'])->name('offerings.decide');
     Route::post('/offerings/{offering}/enroll-cohort', [OfferingController::class, 'enrollCohort'])->name('offerings.enroll');
     Route::post('/offerings/{offering}/results/{result}/correct', [OfferingController::class, 'correct'])->name('offerings.correct');
+
+    Route::get('/progression', [ProgressionController::class, 'index'])->name('progression.index');
+    Route::post('/progression/save', [ProgressionController::class, 'save'])->name('progression.save');
+    Route::post('/progression/apply', [ProgressionController::class, 'apply'])->name('progression.apply');
 
     Route::get('/structure', [StructureController::class, 'index'])->name('structure.index');
     Route::get('/curricula/{curriculum}', [StructureController::class, 'curriculum'])->name('curricula.show');

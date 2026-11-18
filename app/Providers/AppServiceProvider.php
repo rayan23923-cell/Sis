@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\CourseOffering;
+use App\Models\Program;
 use App\Models\Student;
 use App\Models\User;
 use App\Services\PolicyResolver;
@@ -41,6 +42,8 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('enter-marks', fn (User $u, CourseOffering $o) => $o->teacher_id === $u->id
             || ($u->hasRole('super_admin') && $o->teacher_id === null));
         Gate::define('approve-results', fn (User $u, CourseOffering $o) => $u->hasRoleIn($o->collegeId(), 'committee', 'dean'));
+        Gate::define('view-progression', fn (User $u) => $u->hasRole('registrar', 'college_registrar', 'dean', 'committee', 'head', 'auditor'));
+        Gate::define('decide-progression', fn (User $u, Program $p) => $u->hasRole('registrar') || $u->hasRoleIn($p->collegeId(), 'committee', 'dean'));
         Gate::define('correct-results', fn (User $u, CourseOffering $o) => $u->hasRoleIn($o->collegeId(), 'committee', 'dean', 'registrar'));
     }
 }

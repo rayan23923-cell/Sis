@@ -5,7 +5,7 @@ import FlashToast from '@/Components/FlashToast.vue';
 import {
     AcademicCapIcon, ArrowRightOnRectangleIcon, Bars3Icon, BookOpenIcon, BuildingLibraryIcon,
     ClipboardDocumentCheckIcon, DocumentTextIcon, ExclamationTriangleIcon, HomeIcon, ScaleIcon,
-    ShieldCheckIcon, UserCircleIcon, UsersIcon, XMarkIcon,
+    ShieldCheckIcon, UserCircleIcon, UsersIcon, XMarkIcon, ArrowTrendingUpIcon,
 } from '@heroicons/vue/24/outline';
 
 defineProps({ title: { type: String, default: '' } });
@@ -21,6 +21,7 @@ const nav = computed(() => [
     { section: 'الشؤون الأكاديمية' },
     { label: 'الطلبة', route: 'students.index', match: 'students.*', icon: AcademicCapIcon, show: can.value.students },
     { label: 'المواد والدرجات', route: 'offerings.index', match: 'offerings.*', icon: ClipboardDocumentCheckIcon, show: true },
+    { label: 'نتائج نهاية السنة', route: 'progression.index', match: 'progression.*', icon: ArrowTrendingUpIcon, show: can.value.progression },
     { label: 'الهيكل والمناهج', route: 'structure.index', match: ['structure.*', 'curricula.*'], icon: BuildingLibraryIcon, show: true },
     { section: 'الحوكمة' },
     { label: 'السياسات الأكاديمية', route: 'policies.index', match: 'policies.*', icon: ScaleIcon, show: can.value.policies },

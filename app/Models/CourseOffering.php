@@ -19,9 +19,9 @@ class CourseOffering extends Model
         'locked' => 'مقفلة',
     ];
 
-    protected $attributes = ['section' => 'A', 'capacity' => 60, 'current_round' => 1, 'status' => 'open'];
+    protected $attributes = ['section' => 'A', 'shift' => 'morning', 'capacity' => 60, 'current_round' => 1, 'status' => 'open'];
 
-    protected $fillable = ['course_id', 'academic_term_id', 'program_id', 'stage', 'section', 'teacher_id', 'capacity', 'current_round', 'status'];
+    protected $fillable = ['course_id', 'academic_term_id', 'program_id', 'stage', 'section', 'shift', 'teacher_id', 'capacity', 'current_round', 'status'];
 
     public function course(): BelongsTo
     {

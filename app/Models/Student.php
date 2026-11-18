@@ -13,6 +13,16 @@ class Student extends Model
 {
     use Audited;
 
+    public const SHIFTS = ['morning' => 'صباحي', 'evening' => 'مسائي'];
+
+    public const CHANNELS = ['central' => 'القبول المركزي', 'parallel' => 'الدراسة الموازية', 'evening' => 'الدراسة المسائية', 'transfer' => 'انتقال', 'other' => 'أخرى'];
+
+    /** Evening admission means evening study; every other channel defaults to morning. */
+    public static function shiftFor(?string $channel, ?string $shift = null): string
+    {
+        return in_array($shift, array_keys(self::SHIFTS), true) ? $shift : ($channel === 'evening' ? 'evening' : 'morning');
+    }
+
     public const STATUSES = [
         'active' => 'مستمر',
         'postponed' => 'مؤجل',
@@ -23,7 +33,7 @@ class Student extends Model
         'graduated' => 'متخرج',
     ];
 
-    protected $fillable = ['university_number', 'national_id', 'name_ar', 'name_en', 'mother_name_ar', 'birth_date', 'gender', 'phone', 'email', 'status', 'admission_year_id', 'admission_channel', 'user_id'];
+    protected $fillable = ['university_number', 'national_id', 'name_ar', 'name_en', 'mother_name_ar', 'birth_date', 'gender', 'phone', 'email', 'status', 'admission_year_id', 'admission_channel', 'study_shift', 'user_id'];
 
     protected $casts = ['birth_date' => 'date'];
 

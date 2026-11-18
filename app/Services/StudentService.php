@@ -73,6 +73,7 @@ class StudentService
                 'status' => 'active',
                 'admission_year_id' => $year->id,
                 'admission_channel' => $data['admission_channel'] ?? null,
+                'study_shift' => Student::shiftFor($data['admission_channel'] ?? null, $data['study_shift'] ?? null),
             ]);
             $student->programs()->create([
                 'program_id' => $program->id,

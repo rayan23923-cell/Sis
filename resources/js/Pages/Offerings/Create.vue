@@ -10,7 +10,7 @@ import { RectangleStackIcon, DocumentPlusIcon } from '@heroicons/vue/24/outline'
 const props = defineProps({ terms: Array, programs: Array, courses: Array, teachers: Array });
 const form = useForm({
     mode: 'stage', academic_term_id: props.terms.find((t) => t.current)?.id ?? '', program_id: '', stage: 1,
-    course_id: '', section: 'A', teacher_id: '', capacity: 60, enroll: true,
+    course_id: '', section: 'A', shift: 'morning', teacher_id: '', capacity: 60, enroll: true,
 });
 const program = computed(() => props.programs.find((p) => p.id == form.program_id));
 const courses = computed(() => props.courses.filter((c) => !program.value || c.department_id === program.value.department_id));
@@ -36,6 +36,7 @@ const submit = () => form.post(route('offerings.store'));
                         <p v-if="program" class="mt-1 text-xs text-slate-500">{{ program.department }} · {{ systems[program.system] }}</p></div>
                     <div><label class="label">المرحلة</label><select v-model="form.stage" class="input"><option v-for="n in program?.years ?? 6" :key="n" :value="n">{{ n }}</option></select></div>
                     <div><label class="label">الشعبة</label><input v-model="form.section" class="input" required /></div>
+                    <div><label class="label">الدراسة</label><select v-model="form.shift" class="input"><option value="morning">صباحية</option><option value="evening">مسائية</option></select></div>
                     <template v-if="form.mode === 'single'">
                         <div><label class="label">المادة</label><select v-model="form.course_id" class="input" required><option value="" disabled>اختر</option><option v-for="c in courses" :key="c.id" :value="c.id">{{ c.code }} — {{ c.name_ar }}</option></select><InputError :message="form.errors.course_id" class="mt-1" /></div>
                         <div><label class="label">التدريسي</label><select v-model="form.teacher_id" class="input"><option value="">— لاحقاً —</option><option v-for="t in teachers" :key="t.id" :value="t.id">{{ t.name }}</option></select></div>

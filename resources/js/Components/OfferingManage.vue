@@ -11,12 +11,12 @@ const emit = defineEmits(['close']);
 const tab = ref('info');
 const teachers = ref([]);
 
-const info = useForm({ teacher_id: '', capacity: 60, section: 'A' });
+const info = useForm({ teacher_id: '', capacity: 60, section: 'A', shift: 'morning' });
 const comps = useForm({ components: [] });
 watch(() => props.show, async (s) => {
     if (!s) return;
     tab.value = 'info';
-    Object.assign(info, { teacher_id: props.offering.teacher_id ?? '', capacity: props.offering.capacity, section: props.offering.section });
+    Object.assign(info, { teacher_id: props.offering.teacher_id ?? '', capacity: props.offering.capacity, section: props.offering.section, shift: props.offering.shift ?? 'morning' });
     comps.components = props.components.map((c) => ({ ...c }));
     if (!teachers.value.length) teachers.value = (await axios.get(route('offerings.teachers'))).data;
 });
@@ -52,6 +52,7 @@ const add = (s) => router.post(route('offerings.students.store', props.offering.
                     <p class="mt-1 text-xs text-slate-500">التدريسي وحده يُدخل درجات الشعبة. لإضافة تدريسي جديد أنشئ له حساباً بدور «تدريسي» في قسمه.</p></div>
                 <div class="grid grid-cols-2 gap-3">
                     <div><label class="label">الشعبة</label><input v-model="info.section" class="input" /><InputError :message="info.errors.section" class="mt-1" /></div>
+                    <div><label class="label">الدراسة</label><select v-model="info.shift" class="input"><option value="morning">صباحية</option><option value="evening">مسائية</option></select></div>
                     <div><label class="label">السعة</label><input v-model="info.capacity" type="number" min="1" class="input" /></div>
                 </div>
                 <div class="flex justify-end gap-2"><button type="button" class="btn-secondary" @click="emit('close')">إغلاق</button><button class="btn-primary" :disabled="info.processing">حفظ</button></div>

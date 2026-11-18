@@ -11,7 +11,7 @@ import { ExclamationTriangleIcon, IdentificationIcon, AcademicCapIcon, PhoneIcon
 const props = defineProps({ programs: Array, years: Array, orders: Array });
 const form = useForm({
     name_ar: '', name_en: '', mother_name_ar: '', national_id: '', birth_date: '', gender: '',
-    phone: '', email: '', admission_channel: 'central',
+    phone: '', email: '', admission_channel: 'central', study_shift: 'morning',
     program_id: '', year_id: props.years.find((y) => y.is_current)?.id ?? props.years[0]?.id ?? '', stage: 1, order_id: '',
     allow_duplicate: false,
 });
@@ -29,6 +29,7 @@ watch(() => [form.national_id, form.name_ar, form.birth_date, form.mother_name_a
     }, 400);
 });
 const channels = { central: 'القبول المركزي', parallel: 'الدراسة الموازية', evening: 'الدراسة المسائية', transfer: 'انتقال', other: 'أخرى' };
+watch(() => form.admission_channel, (c) => { form.study_shift = c === 'evening' ? 'evening' : 'morning'; });
 const submit = () => form.post(route('students.store'));
 </script>
 
@@ -100,7 +101,10 @@ const submit = () => form.post(route('students.store'));
                             <div><label class="label">سنة القبول</label><select v-model="form.year_id" class="input"><option v-for="y in years" :key="y.id" :value="y.id">{{ y.name }}</option></select></div>
                             <div><label class="label">المرحلة</label><select v-model="form.stage" class="input"><option v-for="s in program?.years ?? 6" :key="s" :value="s">{{ s }}</option></select></div>
                         </div>
-                        <div><label class="label">قناة القبول</label><select v-model="form.admission_channel" class="input"><option v-for="(l, k) in channels" :key="k" :value="k">{{ l }}</option></select></div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div><label class="label">قناة القبول</label><select v-model="form.admission_channel" class="input"><option v-for="(l, k) in channels" :key="k" :value="k">{{ l }}</option></select></div>
+                            <div><label class="label">الدراسة</label><select v-model="form.study_shift" class="input"><option value="morning">صباحية</option><option value="evening">مسائية</option></select></div>
+                        </div>
                         <div>
                             <label class="label">أمر القبول الإداري</label>
                             <select v-model="form.order_id" class="input"><option value="">— بدون (يُضاف لاحقاً) —</option><option v-for="o in orders" :key="o.id" :value="o.id">{{ o.number }} — {{ o.title }}</option></select>

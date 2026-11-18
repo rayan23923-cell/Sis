@@ -23,6 +23,11 @@ class EnrollmentService
         if (! $sp) {
             return 'لا يوجد برنامج حالي للطالب.';
         }
+        if (($student->study_shift ?? 'morning') !== ($offering->shift ?? 'morning')) {
+            return ($student->study_shift ?? 'morning') === 'evening'
+                ? 'دراسة الطالب مسائية والشعبة صباحية.'
+                : 'دراسة الطالب صباحية والشعبة مسائية.';
+        }
         if (Enrollment::where('student_id', $student->id)->where('course_offering_id', $offering->id)->exists()) {
             return 'الطالب مسجل في هذه الشعبة.';
         }
@@ -74,6 +79,7 @@ class EnrollmentService
             throw new WorkflowException('حدد البرنامج والمرحلة للشعبة أولاً.');
         }
         $students = Student::where('status', 'active')
+            ->where('study_shift', $offering->shift ?? 'morning')
             ->whereHas('currentProgram', fn ($q) => $q->where('program_id', $offering->program_id)->where('stage', $offering->stage))
             ->with('currentProgram')->orderBy('name_ar')->get();
         $enrolled = 0;

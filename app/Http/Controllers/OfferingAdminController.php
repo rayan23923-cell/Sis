@@ -52,6 +52,7 @@ class OfferingAdminController extends Controller
             'stage' => ['required', 'integer', 'min:1', 'max:7'],
             'course_id' => ['required_if:mode,single', 'nullable', 'exists:courses,id'],
             'section' => ['required', 'string', 'max:10'],
+            'shift' => ['nullable', Rule::in(array_keys(Student::SHIFTS))],
             'teacher_id' => ['nullable', 'exists:users,id'],
             'capacity' => ['required', 'integer', 'min:1', 'max:1000'],
             'enroll' => ['boolean'],
@@ -74,7 +75,7 @@ class OfferingAdminController extends Controller
                 }
                 $o = CourseOffering::create([
                     'course_id' => $courseId, 'academic_term_id' => $term->id, 'program_id' => $data['program_id'],
-                    'stage' => $data['stage'], 'section' => $data['section'], 'capacity' => $data['capacity'],
+                    'stage' => $data['stage'], 'section' => $data['section'], 'shift' => $data['shift'] ?? 'morning', 'capacity' => $data['capacity'],
                     'teacher_id' => $data['mode'] === 'single' ? ($data['teacher_id'] ?? null) : null, 'status' => 'open', 'current_round' => 1,
                 ]);
                 $this->gradebook->ensureComponents($o);
@@ -97,6 +98,7 @@ class OfferingAdminController extends Controller
         $data = $request->validate([
             'teacher_id' => ['nullable', 'exists:users,id'],
             'capacity' => ['required', 'integer', 'min:1', 'max:1000'],
+            'shift' => ['required', Rule::in(array_keys(Student::SHIFTS))],
             'section' => ['required', 'string', 'max:10', Rule::unique('course_offerings')->where('course_id', $offering->course_id)->where('academic_term_id', $offering->academic_term_id)->ignore($offering->id)],
         ], [], ['section' => 'الشعبة', 'capacity' => 'السعة']);
         AuditContext::as($request->user()->id, 'تعديل بيانات الشعبة', fn () => $offering->update($data));

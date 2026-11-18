@@ -45,7 +45,8 @@ const info = computed(() => [
     ['الجنس', { m: 'ذكر', f: 'أنثى' }[props.student.gender] ?? '—'],
     ['الهاتف', props.student.phone ?? '—', true],
     ['سنة القبول', props.student.admission_year ?? '—'],
-    ['قناة القبول', { central: 'القبول المركزي', parallel: 'الموازي', evening: 'المسائي', transfer: 'انتقال' }[props.student.channel] ?? props.student.channel ?? '—'],
+    ['قناة القبول', { central: 'القبول المركزي', parallel: 'الموازي', evening: 'المسائي', transfer: 'انتقال', other: 'أخرى' }[props.student.channel] ?? props.student.channel ?? '—'],
+    ['الدراسة', props.student.shift === 'evening' ? 'مسائية' : 'صباحية'],
 ]);
 const passedCount = computed(() => props.courses.filter((c) => c.result?.status === 'locked' && c.result.outcome === 'pass').length);
 </script>

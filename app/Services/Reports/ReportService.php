@@ -18,6 +18,7 @@ class ReportService
 {
     public const TABLES = [
         'students_by_college' => 'الطلبة حسب الكلية والحالة',
+        'students_by_shift' => 'الطلبة المستمرون حسب نوع الدراسة وقناة القبول',
         'students_by_stage' => 'الطلبة المستمرون حسب البرنامج والمرحلة',
         'admissions' => 'المقبولون في العام حسب قناة القبول',
         'results_by_college' => 'النتائج المقفلة في العام حسب الكلية',
@@ -33,6 +34,7 @@ class ReportService
         $colleges = College::visibleTo($user)->orderBy('name_ar')->pluck('name_ar', 'id');
         [$columns, $rows, $total] = match ($key) {
             'students_by_college' => $this->studentsByCollege($colleges),
+            'students_by_shift' => $this->studentsByShift($colleges),
             'students_by_stage' => $this->studentsByStage($colleges),
             'admissions' => $this->admissions($colleges, $year),
             'results_by_college' => $this->resultsByCollege($colleges, $year),
@@ -67,6 +69,22 @@ class ReportService
         })->values()->all();
 
         return [['الكلية', ...array_map(fn ($s) => Student::STATUSES[$s], $statuses), 'منسحب/مرقن/منقول', 'المجموع', 'ذكور', 'إناث'], $rows, $this->sumRow($rows)];
+    }
+
+    private function studentsByShift(Collection $colleges): array
+    {
+        $data = $this->students($colleges)->where('students.status', 'active')
+            ->select('departments.college_id', 'students.study_shift as shift', 'students.admission_channel as ch', DB::raw('count(*) as n'))
+            ->groupBy('departments.college_id', 'students.study_shift', 'students.admission_channel')->get();
+        $rows = $colleges->map(function ($name, $id) use ($data) {
+            $c = $data->where('college_id', $id);
+            $m = $c->where('shift', 'morning');
+
+            return [$name, (int) $m->where('ch', 'central')->sum('n'), (int) $m->where('ch', 'parallel')->sum('n'), (int) $m->whereNotIn('ch', ['central', 'parallel'])->sum('n'),
+                (int) $m->sum('n'), (int) $c->where('shift', 'evening')->sum('n'), (int) $c->sum('n')];
+        })->values()->all();
+
+        return [['الكلية', 'صباحي مركزي', 'صباحي موازي', 'صباحي (أخرى)', 'مجموع الصباحي', 'المسائي', 'المجموع'], $rows, $this->sumRow($rows)];
     }
 
     private function studentsByStage(Collection $colleges): array

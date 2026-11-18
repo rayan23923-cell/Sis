@@ -24,13 +24,14 @@ class StudentController extends Controller
     {
         Gate::authorize('view-students');
         $user = $request->user();
-        $filters = $request->only(['q', 'college', 'program', 'status', 'stage']);
+        $filters = $request->only(['q', 'college', 'program', 'status', 'stage', 'shift']);
 
         $students = Student::visibleTo($user)
             ->with(['currentProgram:id,student_id,program_id,stage', 'currentProgram.program:id,name_ar,department_id,study_system', 'currentProgram.program.department:id,name_ar,college_id'])
             ->when($filters['q'] ?? null, fn ($q, $s) => $q->where(fn ($w) => $w->where('name_ar', 'like', "%{$s}%")
                 ->orWhere('university_number', 'like', "{$s}%")->orWhere('national_id', $s)))
             ->when($filters['status'] ?? null, fn ($q, $s) => $q->where('status', $s))
+            ->when($filters['shift'] ?? null, fn ($q, $s) => $q->where('study_shift', $s))
             ->when($filters['program'] ?? null, fn ($q, $p) => $q->whereHas('currentProgram', fn ($c) => $c->where('program_id', $p)))
             ->when($filters['stage'] ?? null, fn ($q, $p) => $q->whereHas('currentProgram', fn ($c) => $c->where('stage', $p)))
             ->when($filters['college'] ?? null, fn ($q, $c) => $q->whereHas('currentProgram.program.department', fn ($d) => $d->where('college_id', $c)))
@@ -45,6 +46,7 @@ class StudentController extends Controller
                 'program' => $s->currentProgram?->program?->name_ar,
                 'department' => $s->currentProgram?->program?->department?->name_ar,
                 'stage' => $s->currentProgram?->stage,
+                'shift' => $s->study_shift,
             ]);
 
         return Inertia::render('Students/Index', [
@@ -90,7 +92,8 @@ class StudentController extends Controller
             'gender' => ['required', Rule::in(['m', 'f'])],
             'phone' => ['nullable', 'string', 'max:30'],
             'email' => ['nullable', 'email'],
-            'admission_channel' => ['nullable', 'string', 'max:30'],
+            'admission_channel' => ['nullable', Rule::in(array_keys(Student::CHANNELS))],
+            'study_shift' => ['nullable', Rule::in(array_keys(Student::SHIFTS))],
             'program_id' => ['required', 'exists:programs,id'],
             'year_id' => ['required', 'exists:academic_years,id'],
             'stage' => ['required', 'integer', 'min:1', 'max:6'],
@@ -138,6 +141,7 @@ class StudentController extends Controller
                 'email' => $student->email,
                 'status' => $student->status,
                 'channel' => $student->admission_channel,
+                'shift' => $student->study_shift,
                 'admission_year' => $student->admissionYear?->name,
                 'has_account' => $student->user_id !== null,
                 'can_issue_account' => Gate::allows('admit-students') && ! in_array($student->status, ['dismissed', 'withdrawn', 'transferred_out'], true),

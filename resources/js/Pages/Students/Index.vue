@@ -12,7 +12,7 @@ import { MagnifyingGlassIcon, PlusIcon, UserGroupIcon, FunnelIcon, ArrowUpTrayIc
 
 const props = defineProps({ students: Object, filters: Object, colleges: Array, programs: Array, statuses: Object });
 const page = usePage();
-const f = reactive({ q: props.filters.q ?? '', college: props.filters.college ?? '', program: props.filters.program ?? '', status: props.filters.status ?? '', stage: props.filters.stage ?? '' });
+const f = reactive({ q: props.filters.q ?? '', college: props.filters.college ?? '', program: props.filters.program ?? '', status: props.filters.status ?? '', stage: props.filters.stage ?? '', shift: props.filters.shift ?? '' });
 const programs = computed(() => props.programs.filter((p) => !f.college || p.college_id == f.college));
 
 let t;
@@ -39,7 +39,7 @@ const bulkAccounts = async () => {
         issuing.value = false;
     }
 };
-const reset = () => Object.assign(f, { q: '', college: '', program: '', status: '', stage: '' });
+const reset = () => Object.assign(f, { q: '', college: '', program: '', status: '', stage: '', shift: '' });
 </script>
 
 <template>
@@ -52,7 +52,7 @@ const reset = () => Object.assign(f, { q: '', college: '', program: '', status: 
         <p v-if="bulkError" class="mb-4 rounded-xl bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{{ bulkError }}</p>
 
         <div class="card">
-            <div class="grid gap-3 border-b border-slate-100 p-4 sm:grid-cols-2 lg:grid-cols-6">
+            <div class="grid gap-3 border-b border-slate-100 p-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
                 <div class="relative lg:col-span-2">
                     <MagnifyingGlassIcon class="pointer-events-none absolute start-3 top-2.5 h-5 w-5 text-slate-400" />
                     <input v-model="f.q" type="search" class="input ps-10" placeholder="بحث بالاسم أو الرقم الجامعي أو الوطني" autofocus />
@@ -60,6 +60,7 @@ const reset = () => Object.assign(f, { q: '', college: '', program: '', status: 
                 <select v-model="f.college" class="input" @change="f.program = ''"><option value="">كل الكليات</option><option v-for="c in colleges" :key="c.id" :value="c.id">{{ c.name_ar }}</option></select>
                 <select v-model="f.program" class="input"><option value="">كل البرامج</option><option v-for="p in programs" :key="p.id" :value="p.id">{{ p.name }}</option></select>
                 <select v-model="f.stage" class="input"><option value="">كل المراحل</option><option v-for="s in 6" :key="s" :value="s">المرحلة {{ s }}</option></select>
+                <select v-model="f.shift" class="input"><option value="">الصباحي والمسائي</option><option value="morning">صباحي</option><option value="evening">مسائي</option></select>
                 <select v-model="f.status" class="input"><option value="">كل الحالات</option><option v-for="(l, k) in statuses" :key="k" :value="k">{{ l }}</option></select>
             </div>
 
@@ -76,7 +77,7 @@ const reset = () => Object.assign(f, { q: '', college: '', program: '', status: 
                                 </Link>
                             </td>
                             <td><p class="font-semibold">{{ s.department ?? '—' }}</p><p class="text-xs text-slate-500">{{ s.program }}</p></td>
-                            <td class="tabular-nums">{{ s.stage ?? '—' }}</td>
+                            <td class="tabular-nums">{{ s.stage ?? "—" }}<span v-if="s.shift === 'evening'" class="ms-1 rounded bg-violet-50 px-1 text-[11px] font-bold text-violet-700">مسائي</span></td>
                             <td><Badge :map="studentStatus" :value="s.status" dot /></td>
                         </tr>
                     </tbody>

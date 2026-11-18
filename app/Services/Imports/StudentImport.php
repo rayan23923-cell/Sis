@@ -5,6 +5,7 @@ namespace App\Services\Imports;
 use App\Models\AcademicYear;
 use App\Models\AdministrativeOrder;
 use App\Models\Program;
+use App\Models\Student;
 use App\Models\User;
 use App\Services\StudentService;
 use App\Services\WorkflowException;
@@ -31,6 +32,7 @@ class StudentImport
         'الهاتف' => 'phone',
         'البريد الإلكتروني' => 'email',
         'قناة القبول' => 'admission_channel',
+        'الدراسة' => 'study_shift',
     ];
 
     public function __construct(private readonly StudentService $students) {}
@@ -38,10 +40,11 @@ class StudentImport
     public function template(): StreamedResponse
     {
         return Sheet::download('students-template.xlsx', 'الطلبة', array_keys(self::COLUMNS), [
-            ['علي حسين كاظم جاسم', 'زينب عباس علي', '2006-03-15', 'ذكر', '', 'Ali Hussein Kadhim', '07701234567', '', 'مركزي'],
+            ['علي حسين كاظم جاسم', 'زينب عباس علي', '2006-03-15', 'ذكر', '', 'Ali Hussein Kadhim', '07701234567', '', 'مركزي', 'صباحي'],
         ], range(0, count(self::COLUMNS) - 1), [
             'السطر الثاني مثال؛ احذفه قبل الرفع.',
             'الأعمدة الأربعة الأولى إلزامية. التاريخ بصيغة 2006-03-15 أو 15/03/2006. الجنس: ذكر أو أنثى.',
+            'قناة القبول: مركزي أو موازي أو مسائي أو انتقال. الدراسة: صباحي أو مسائي (تُترك فارغة فتُحدد من القناة).',
             'يُفحص كل سطر قبل الحفظ، ويُعرض الطلبة المشابهون لطلبة موجودين لتقرر قبولهم أو استبعادهم.',
             'الحد الأقصى 2000 طالب في الملف الواحد.',
         ]);
@@ -79,6 +82,19 @@ class StudentImport
                 'أنثى', 'انثى', 'f', 'female', 'أ', 'ا' => 'f',
                 default => $data['gender'] ?? null,
             };
+            $data['admission_channel'] = match ($data['admission_channel'] ?? null) {
+                null, '', 'مركزي', 'القبول المركزي', 'central' => 'central',
+                'موازي', 'الموازي', 'الدراسة الموازية', 'parallel' => 'parallel',
+                'مسائي', 'المسائي', 'الدراسة المسائية', 'evening' => 'evening',
+                'انتقال', 'transfer' => 'transfer',
+                default => $data['admission_channel'],
+            };
+            $data['study_shift'] = match ($data['study_shift'] ?? null) {
+                'صباحي', 'صباحية', 'morning' => 'morning',
+                'مسائي', 'مسائية', 'evening' => 'evening',
+                null, '' => Student::shiftFor($data['admission_channel']),
+                default => $data['study_shift'],
+            };
             $v = Validator::make($data, [
                 'name_ar' => ['required', 'string', 'max:150'],
                 'mother_name_ar' => ['required', 'string', 'max:150'],
@@ -88,8 +104,9 @@ class StudentImport
                 'name_en' => ['nullable', 'string', 'max:150'],
                 'phone' => ['nullable', 'string', 'max:30'],
                 'email' => ['nullable', 'email'],
-                'admission_channel' => ['nullable', 'string', 'max:30'],
-            ], [], ['name_ar' => 'الاسم الرباعي', 'mother_name_ar' => 'اسم الأم', 'birth_date' => 'تاريخ الميلاد', 'gender' => 'الجنس', 'email' => 'البريد', 'national_id' => 'الرقم الوطني']);
+                'admission_channel' => ['nullable', 'in:central,parallel,evening,transfer,other'],
+                'study_shift' => ['required', 'in:morning,evening'],
+            ], [], ['admission_channel' => 'قناة القبول', 'study_shift' => 'الدراسة', 'name_ar' => 'الاسم الرباعي', 'mother_name_ar' => 'اسم الأم', 'birth_date' => 'تاريخ الميلاد', 'gender' => 'الجنس', 'email' => 'البريد', 'national_id' => 'الرقم الوطني']);
             $errors = $v->errors()->all();
 
             $key = ($data['name_ar'] ?? '').'|'.($data['birth_date'] ?? '');

@@ -6,15 +6,16 @@ import PageHeader from '@/Components/PageHeader.vue';
 import Badge from '@/Components/Badge.vue';
 import Modal from '@/Components/Modal.vue';
 import OrderModal from '@/Components/OrderModal.vue';
+import OfferingManage from '@/Components/OfferingManage.vue';
 import InputError from '@/Components/InputError.vue';
 import EmptyState from '@/Components/EmptyState.vue';
 import { offeringStatus, outcome, resultStatus, roundName, systems } from '@/lib/labels';
 import {
     ArrowUturnRightIcon, CalculatorIcon, CheckBadgeIcon, CheckIcon, CloudArrowUpIcon, ExclamationTriangleIcon,
-    LockClosedIcon, MagnifyingGlassIcon, PencilSquareIcon, PlusIcon, ArrowPathIcon, UsersIcon, InformationCircleIcon,
+    LockClosedIcon, MagnifyingGlassIcon, Cog6ToothIcon, UserMinusIcon, PencilSquareIcon, PlusIcon, ArrowPathIcon, UsersIcon, InformationCircleIcon,
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({ offering: Object, round: Number, components: Array, rows: Array, gradeScale: Array, official: Boolean, perm: Object, orders: Array, statuses: Object });
+const props = defineProps({ offering: Object, round: Number, components: Array, rows: Array, gradeScale: Array, official: Boolean, perm: Object, allComponents: Array, orders: Array, statuses: Object });
 const page = usePage();
 
 // ---------- editable sheet ----------
@@ -136,6 +137,11 @@ const openCorrect = (r) => {
 const saveCorrect = () => correctForm.post(route('offerings.correct', [props.offering.id, correctRow.value.result.id]), { preserveScroll: true, onSuccess: () => (showCorrect.value = false) });
 const orderSaved = (id) => { router.reload({ only: ['orders'], onSuccess: () => { if (id) correctForm.order_id = id; } }); };
 
+const showManage = ref(false);
+const withdraw = (r) => {
+    const reason = prompt(`سبب سحب ${r.name} من الشعبة:`);
+    if (reason) router.post(route('offerings.withdraw', [props.offering.id, r.enrollment_id]), { reason }, { preserveScroll: true });
+};
 const outcomeTone = { pass: 'text-emerald-700', fail: 'text-rose-700', resit: 'text-amber-700' };
 </script>
 
@@ -155,6 +161,7 @@ const outcomeTone = { pass: 'text-emerald-700', fail: 'text-rose-700', resit: 't
                 </div>
             </template>
             <button v-if="perm.enroll && !rows.length" class="btn-secondary" @click="post('offerings.enroll')"><UsersIcon class="h-4 w-4" /> تسجيل طلبة المرحلة</button>
+            <button v-if="perm.manage" class="btn-secondary" @click="showManage = true"><Cog6ToothIcon class="h-4 w-4" /> إدارة الشعبة</button>
         </PageHeader>
 
         <!-- workflow stepper -->
@@ -226,7 +233,7 @@ const outcomeTone = { pass: 'text-emerald-700', fail: 'text-rose-700', resit: 't
                                     <th class="px-3 py-3 text-center">المجموع</th>
                                     <th class="px-3 py-3 text-center">التقدير</th>
                                     <th class="px-3 py-3 text-center">النتيجة</th>
-                                    <th v-if="perm.correct" class="w-10 px-2 py-3"></th>
+                                    <th v-if="perm.correct || perm.manage" class="w-10 px-2 py-3"></th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100">
@@ -266,8 +273,9 @@ const outcomeTone = { pass: 'text-emerald-700', fail: 'text-rose-700', resit: 't
                                         </div>
                                         <span v-else class="text-xs text-slate-300">لم تُحتسب</span>
                                     </td>
-                                    <td v-if="perm.correct" class="px-2 py-2 text-center">
-                                        <button v-if="r.result?.status === 'locked'" class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-brand-700" title="تصحيح بأمر إداري" @click="openCorrect(r)"><PencilSquareIcon class="h-4 w-4" /></button>
+                                    <td v-if="perm.correct || perm.manage" class="px-2 py-2 text-center">
+                                        <button v-if="perm.manage && offering.status === 'open' && round === 1 && (!r.result || r.result.status === 'draft')" class="rounded-lg p-1.5 text-slate-300 hover:bg-rose-50 hover:text-rose-600" title="سحب من الشعبة" @click="withdraw(r)"><UserMinusIcon class="h-4 w-4" /></button>
+                                        <button v-if="perm.correct && r.result?.status === 'locked'" class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-brand-700" title="تصحيح بأمر إداري" @click="openCorrect(r)"><PencilSquareIcon class="h-4 w-4" /></button>
                                     </td>
                                 </tr>
                             </tbody>
@@ -355,6 +363,7 @@ const outcomeTone = { pass: 'text-emerald-700', fail: 'text-rose-700', resit: 't
                 <div class="mt-6 flex justify-end gap-2"><button type="button" class="btn-secondary" @click="showCorrect = false">إلغاء</button><button class="btn-primary" :disabled="correctForm.processing">حفظ التصحيح</button></div>
             </form>
         </Modal>
+        <OfferingManage :show="showManage" :offering="offering" :components="allComponents" :can-edit-components="perm.editComponents" @close="showManage = false" />
         <OrderModal :show="showOrder" :types="{ result_correction: 'تصحيح نتيجة' }" type="result_correction" @close="showOrder = false" @saved="orderSaved" />
     </AppLayout>
 </template>

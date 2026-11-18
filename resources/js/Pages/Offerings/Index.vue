@@ -7,7 +7,7 @@ import Badge from '@/Components/Badge.vue';
 import Pagination from '@/Components/Pagination.vue';
 import EmptyState from '@/Components/EmptyState.vue';
 import { offeringStatus, roundName } from '@/lib/labels';
-import { MagnifyingGlassIcon, ClipboardDocumentListIcon, UserIcon, UsersIcon } from '@heroicons/vue/24/outline';
+import { MagnifyingGlassIcon, ClipboardDocumentListIcon, UserIcon, UsersIcon, PlusIcon } from '@heroicons/vue/24/outline';
 
 const props = defineProps({ offerings: Object, filters: Object, terms: Array, colleges: Array, statuses: Object });
 const f = reactive({ q: props.filters.q ?? '', term: props.filters.term ?? '', college: props.filters.college ?? '', status: props.filters.status ?? '', mine: props.filters.mine ?? '' });
@@ -21,7 +21,9 @@ const fill = (o) => Math.min(100, Math.round((o.students / Math.max(1, o.capacit
 
 <template>
     <AppLayout title="المواد والدرجات">
-        <PageHeader title="المواد والدرجات" subtitle="شعب المواد في الفصل الحالي، وحالة إدخال الدرجات والمصادقة عليها." />
+        <PageHeader title="المواد والدرجات" subtitle="شعب المواد في الفصل الحالي، وحالة إدخال الدرجات والمصادقة عليها.">
+            <Link v-if="$page.props.can.offerings" :href="route('offerings.create')" class="btn-primary"><PlusIcon class="h-4 w-4" /> فتح شعب</Link>
+        </PageHeader>
 
         <div class="card mb-6 grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-5">
             <div class="relative lg:col-span-2">

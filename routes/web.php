@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuditController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\OfferingAdminController;
 use App\Http\Controllers\OfferingController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\PolicyController;
@@ -25,6 +26,14 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::post('/students/{student}/status', [StudentController::class, 'changeStatus'])->name('students.status');
 
     Route::get('/offerings', [OfferingController::class, 'index'])->name('offerings.index');
+    Route::get('/offerings/create', [OfferingAdminController::class, 'create'])->name('offerings.create');
+    Route::post('/offerings', [OfferingAdminController::class, 'store'])->name('offerings.store');
+    Route::get('/offerings/teachers', [OfferingAdminController::class, 'teacherOptions'])->name('offerings.teachers');
+    Route::put('/offerings/{offering}', [OfferingAdminController::class, 'update'])->name('offerings.update');
+    Route::put('/offerings/{offering}/components', [OfferingAdminController::class, 'components'])->name('offerings.components');
+    Route::get('/offerings/{offering}/students/search', [OfferingAdminController::class, 'searchStudents'])->name('offerings.students.search');
+    Route::post('/offerings/{offering}/students', [OfferingAdminController::class, 'enroll'])->name('offerings.students.store');
+    Route::post('/offerings/{offering}/enrollments/{enrollment}/withdraw', [OfferingAdminController::class, 'withdraw'])->name('offerings.withdraw');
     Route::get('/offerings/{offering}', [OfferingController::class, 'show'])->name('offerings.show');
     Route::post('/offerings/{offering}/marks', [OfferingController::class, 'saveMarks'])->name('offerings.marks');
     Route::post('/offerings/{offering}/compute', [OfferingController::class, 'compute'])->name('offerings.compute');

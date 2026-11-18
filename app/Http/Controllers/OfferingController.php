@@ -8,6 +8,7 @@ use App\AcademicRules\PolicySet;
 use App\Models\AcademicTerm;
 use App\Models\AdministrativeOrder;
 use App\Models\College;
+use App\Models\Course;
 use App\Models\CourseOffering;
 use App\Models\FinalResult;
 use App\Services\EnrollmentService;
@@ -133,10 +134,12 @@ class OfferingController extends Controller
                 'credits' => (float) $offering->course->credit_hours,
                 'ects' => $offering->course->ects ? (float) $offering->course->ects : null,
                 'capacity' => $offering->capacity,
+                'teacher_id' => $offering->teacher_id,
                 'status' => $offering->status,
                 'current_round' => $offering->current_round,
             ],
             'round' => $round,
+            'allComponents' => $offering->components()->get(['id', 'code', 'name_ar', 'weight', 'max_mark', 'exam_round'])->map(fn ($c) => ['id' => $c->id, 'code' => $c->code, 'name_ar' => $c->name_ar, 'weight' => (float) $c->weight, 'max_mark' => (float) $c->max_mark, 'exam_round' => $c->exam_round]),
             'components' => $components->map(fn ($c) => ['id' => $c->id, 'code' => $c->code, 'name' => $c->name_ar, 'weight' => (float) $c->weight, 'max' => (float) $c->max_mark, 'round' => $c->exam_round, 'editable' => $editable->contains($c->id)])->values(),
             'rows' => $rows,
             'gradeScale' => $policies->has('grade_scale') ? collect($policies->get('grade_scale')->parameters['bands'] ?? [])->map(fn ($b) => ['code' => $b['code'], 'name' => $b['name_ar'], 'min' => $b['min'], 'max' => $b['max'], 'outcome' => $b['outcome']]) : [],
@@ -149,6 +152,8 @@ class OfferingController extends Controller
                 'nextRound' => $isCommittee && $this->gradebook->canOpenNextRound($offering),
                 'correct' => Gate::allows('correct-results', $offering),
                 'enroll' => Gate::allows('manage-offerings') && $offering->status === 'open',
+                'manage' => Gate::allows('manage-offerings') && ($user->collegeScope() === null || Course::visibleTo($user)->whereKey($offering->course_id)->exists()),
+                'editComponents' => ! $offering->enrollments()->whereHas('marks')->exists(),
             ],
             'orders' => Gate::allows('correct-results', $offering)
                 ? AdministrativeOrder::where('type', 'result_correction')->latest('issued_on')->limit(30)->get()->map(fn ($o) => ['id' => $o->id, 'label' => $o->reference().' — '.$o->title])

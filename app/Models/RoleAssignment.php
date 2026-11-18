@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\Audited;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class RoleAssignment extends Model
 {
+    use Audited;
+
     public const ROLES = [
         'super_admin' => 'مدير النظام',
         'registrar' => 'مسجل الجامعة',

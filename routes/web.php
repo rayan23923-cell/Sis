@@ -6,8 +6,10 @@ use App\Http\Controllers\OfferingController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\PolicyController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\StructureAdminController;
 use App\Http\Controllers\StructureController;
 use App\Http\Controllers\StudentController;
+use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/dashboard');
@@ -34,6 +36,25 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/structure', [StructureController::class, 'index'])->name('structure.index');
     Route::get('/curricula/{curriculum}', [StructureController::class, 'curriculum'])->name('curricula.show');
 
+    Route::middleware('can:manage-structure')->controller(StructureAdminController::class)->group(function () {
+        Route::post('/colleges', 'saveCollege')->name('colleges.store');
+        Route::put('/colleges/{college}', 'saveCollege')->name('colleges.update');
+        Route::post('/departments', 'saveDepartment')->name('departments.store');
+        Route::put('/departments/{department}', 'saveDepartment')->name('departments.update');
+        Route::post('/programs', 'saveProgram')->name('programs.store');
+        Route::put('/programs/{program}', 'saveProgram')->name('programs.update');
+        Route::get('/courses', 'courses')->name('courses.index');
+        Route::post('/courses', 'saveCourse')->name('courses.store');
+        Route::put('/courses/{course}', 'saveCourse')->name('courses.update');
+        Route::post('/curricula/{curriculum}/versions', 'newCurriculumVersion')->name('curricula.version');
+        Route::post('/curricula/{curriculum}/courses', 'addCurriculumCourse')->name('curricula.courses.store');
+        Route::delete('/curricula/{curriculum}/courses/{item}', 'removeCurriculumCourse')->name('curricula.courses.destroy');
+        Route::post('/curricula/{curriculum}/approve', 'approveCurriculum')->name('curricula.approve');
+        Route::post('/years', 'saveYear')->name('years.store');
+        Route::post('/years/{year}/current', 'makeYearCurrent')->name('years.current');
+        Route::put('/terms/{term}', 'saveTerm')->name('terms.update');
+    });
+
     Route::get('/policies', [PolicyController::class, 'index'])->name('policies.index');
     Route::post('/policies/{policy}/versions', [PolicyController::class, 'store'])->name('policies.version');
     Route::post('/policies/{policy}/approve', [PolicyController::class, 'approve'])->name('policies.approve');
@@ -41,6 +62,10 @@ Route::middleware(['auth', 'active'])->group(function () {
 
     Route::get('/orders', [OrderController::class, 'index'])->name('orders.index');
     Route::post('/orders', [OrderController::class, 'store'])->name('orders.store');
+
+    Route::get('/users', [UserController::class, 'index'])->name('users.index');
+    Route::post('/users', [UserController::class, 'store'])->name('users.store');
+    Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
 
     Route::get('/audit', [AuditController::class, 'index'])->name('audit.index');
 

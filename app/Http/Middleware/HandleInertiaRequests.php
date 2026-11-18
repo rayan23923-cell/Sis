@@ -38,6 +38,7 @@ class HandleInertiaRequests extends Middleware
                 'managePolicies' => Gate::allows('manage-policies'),
                 'orders' => Gate::allows('issue-orders'),
                 'audit' => Gate::allows('view-audit'),
+                'users' => Gate::allows('manage-users'),
                 'offerings' => Gate::allows('manage-offerings'),
             ] : [],
             'unofficialPolicies' => fn () => $user ? AcademicPolicy::where('status', 'approved')->where('is_official', false)->exists() : false,

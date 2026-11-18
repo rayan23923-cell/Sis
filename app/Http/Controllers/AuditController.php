@@ -20,6 +20,8 @@ class AuditController extends Controller
         'App\\Models\\AdministrativeOrder' => 'أمر إداري',
         'App\\Models\\CourseOffering' => 'شعبة مادة',
         'App\\Models\\Enrollment' => 'تسجيل',
+        'App\\Models\\User' => 'حساب مستخدم',
+        'App\\Models\\RoleAssignment' => 'دور مستخدم',
     ];
 
     public function index(Request $request): Response

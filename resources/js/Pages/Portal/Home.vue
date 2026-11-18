@@ -54,7 +54,8 @@ const savePw = () => pw.put(route('password.update'), { preserveScroll: true, on
                     <component :is="icon" class="h-4 w-4" /> {{ l }}
                 </button>
             </div>
-            <a :href="route('students.transcript', student.id)" target="_blank" class="btn-secondary ms-auto"><ArrowDownTrayIcon class="h-4 w-4" /> كشف الدرجات PDF</a>
+            <a v-if="student.status === 'graduated'" :href="route('students.graduation', student.id)" target="_blank" class="btn-secondary ms-auto">وثيقة التخرج PDF</a>
+            <a :href="route('students.transcript', student.id)" target="_blank" class="btn-secondary" :class="student.status !== 'graduated' && 'ms-auto'"><ArrowDownTrayIcon class="h-4 w-4" /> كشف الدرجات PDF</a>
         </div>
 
         <!-- current year -->

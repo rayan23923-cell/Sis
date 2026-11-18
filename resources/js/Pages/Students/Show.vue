@@ -12,7 +12,11 @@ import EmptyState from '@/Components/EmptyState.vue';
 import { studentStatus, outcome, resultStatus, systems, roundName } from '@/lib/labels';
 import { ArrowPathIcon, BookOpenIcon, ClockIcon, DocumentTextIcon, PlusIcon, PrinterIcon, KeyIcon } from '@heroicons/vue/24/outline';
 
-const props = defineProps({ student: Object, programs: Array, history: Array, courses: Array, statuses: Object, transitions: Array, orders: Array, orderTypes: Object });
+const props = defineProps({ student: Object, programs: Array, history: Array, courses: Array, statuses: Object, transitions: Array, orders: Array, orderTypes: Object, programOptions: { type: Array, default: () => [] }, documents: { type: Array, default: () => [] } });
+const revoke = (d) => {
+    const reason = prompt(`سبب إلغاء الوثيقة ${d.code}:`);
+    if (reason) router.post(route('documents.revoke', d.id), { reason }, { preserveScroll: true });
+};
 const page = usePage();
 const issuing = ref(false);
 const issueAccount = () => {
@@ -25,7 +29,8 @@ const tab = ref('courses');
 
 const showStatus = ref(false);
 const showOrder = ref(false);
-const form = useForm({ to: '', order_id: '', effective_on: '', notes: '' });
+const form = useForm({ to: '', order_id: '', effective_on: '', notes: '', program_id: '', stage: 1 });
+const targetProgram = computed(() => props.programOptions.find((p) => p.id == form.program_id));
 const transition = computed(() => props.transitions.find((t) => t.to === form.to));
 const matchingOrders = computed(() => props.orders.filter((o) => !transition.value || o.type === transition.value.order_type || o.type === 'other'));
 const openStatus = (to) => { form.reset(); form.to = to; showStatus.value = true; };
@@ -55,6 +60,7 @@ const passedCount = computed(() => props.courses.filter((c) => c.result?.status 
                     <span v-if="student.name_en" dir="ltr" class="text-xs">{{ student.name_en }}</span>
                 </div>
             </template>
+            <a v-if="student.status === 'graduated'" :href="route('students.graduation', student.id)" target="_blank" class="btn-secondary"><PrinterIcon class="h-4 w-4" /> وثيقة التخرج PDF</a>
             <a :href="route('students.transcript', student.id)" target="_blank" class="btn-secondary"><PrinterIcon class="h-4 w-4" /> كشف الدرجات PDF</a>
             <button v-if="transitions.length" class="btn-primary" @click="openStatus('')"><ArrowPathIcon class="h-4 w-4" /> تغيير الحالة</button>
         </PageHeader>
@@ -77,6 +83,18 @@ const passedCount = computed(() => props.courses.filter((c) => c.result?.status 
                         </div>
                         <button class="btn-secondary shrink-0" :disabled="issuing" @click="issueAccount">{{ student.has_account ? 'كلمة مرور جديدة' : 'إنشاء حساب' }}</button>
                     </div>
+                </section>
+                <section v-if="documents.length" class="card">
+                    <div class="card-header"><h2 class="card-title">الوثائق الصادرة</h2></div>
+                    <ul class="divide-y divide-slate-100 text-sm">
+                        <li v-for="d in documents" :key="d.id" class="flex items-center gap-2 px-5 py-2.5">
+                            <div class="min-w-0 flex-1">
+                                <p class="font-semibold text-slate-800">{{ d.type }} <a :href="d.url" target="_blank" class="ltr ms-1 font-mono text-xs text-brand-700 hover:underline">{{ d.code }}</a></p>
+                                <p class="text-xs text-slate-400"><span class="ltr">{{ d.at }}</span> · {{ d.by }}<span v-if="!d.valid" class="text-rose-600"> · ملغاة: {{ d.reason }}</span></p>
+                            </div>
+                            <button v-if="d.valid && student.can_issue_account !== undefined && page.props.can.admit" class="text-xs font-bold text-rose-600 hover:underline" @click="revoke(d)">إلغاء</button>
+                        </li>
+                    </ul>
                 </section>
                 <section class="card">
                     <div class="card-header"><h2 class="card-title">المسار الدراسي</h2></div>
@@ -170,7 +188,16 @@ const passedCount = computed(() => props.courses.filter((c) => c.result?.status 
                         <p v-if="transition" class="mt-1 text-xs text-slate-500">نوع الأمر المطلوب: {{ orderTypes[transition.order_type] }}</p>
                         <InputError :message="form.errors.order_id" class="mt-1" />
                     </div>
-                    <div><label class="label">تاريخ النفاذ</label><input v-model="form.effective_on" type="date" class="input" /><p class="mt-1 text-xs text-slate-500">يُترك فارغاً ليُعتمد تاريخ الأمر.</p></div>
+                    <div v-if="form.to === 'program_change'" class="grid gap-3 rounded-xl bg-slate-50 p-3 sm:grid-cols-3">
+                        <div class="sm:col-span-2">
+                            <label class="label">البرنامج الجديد <span class="text-rose-500">*</span></label>
+                            <select v-model="form.program_id" class="input" required><option value="" disabled>اختر البرنامج</option><option v-for="p in programOptions" :key="p.id" :value="p.id">{{ p.name }} — {{ p.department }}</option></select>
+                            <InputError :message="form.errors.program_id" class="mt-1" />
+                        </div>
+                        <div><label class="label">المرحلة</label><select v-model="form.stage" class="input"><option v-for="n in targetProgram?.years ?? 6" :key="n" :value="n">{{ n }}</option></select></div>
+                        <p class="text-xs text-slate-500 sm:col-span-3">يبقى الرقم الجامعي نفسه، ويُغلق البرنامج الحالي ويبقى في السجل. معادلة المواد المجتازة تُعالج حسب تعليمات الجامعة.</p>
+                    </div>
+                    <div v-else><label class="label">تاريخ النفاذ</label><input v-model="form.effective_on" type="date" class="input" /><p class="mt-1 text-xs text-slate-500">يُترك فارغاً ليُعتمد تاريخ الأمر.</p></div>
                     <div><label class="label">ملاحظات</label><textarea v-model="form.notes" rows="2" class="input" /></div>
                 </div>
                 <div class="mt-6 flex justify-end gap-2"><button type="button" class="btn-secondary" @click="showStatus = false">إلغاء</button><button class="btn-primary" :disabled="form.processing || !form.to">تأكيد التغيير</button></div>

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\AcademicYear;
 use App\Models\AdministrativeOrder;
 use App\Models\College;
+use App\Models\IssuedDocument;
 use App\Models\Program;
 use App\Models\Student;
 use App\Services\StudentService;
@@ -118,6 +119,10 @@ class StudentController extends Controller
 
         $transitions = collect(StudentService::TRANSITIONS[$student->status] ?? [])
             ->map(fn ($orderType, $to) => ['to' => $to, 'label' => Student::STATUSES[$to], 'order_type' => $orderType])->values();
+        if ($student->status === 'active') {
+            $transitions->push(['to' => 'program_change', 'label' => 'تغيير قسم/برنامج', 'order_type' => 'program_change']);
+        }
+        $currentProgramId = $student->programs->firstWhere('is_current', true)?->program_id;
 
         return Inertia::render('Students/Show', [
             'student' => [
@@ -165,6 +170,15 @@ class StudentController extends Controller
                     ->get()->map(fn ($o) => ['id' => $o->id, 'type' => $o->type, 'label' => $o->reference().' — '.$o->title])
                 : [],
             'orderTypes' => AdministrativeOrder::TYPES,
+            'documents' => IssuedDocument::where('student_id', $student->id)->with('issuer:id,name')->latest()->limit(30)->get()
+                ->map(fn ($d) => ['id' => $d->id, 'code' => $d->code, 'type' => IssuedDocument::TYPES[$d->type] ?? $d->type, 'at' => $d->created_at->timezone('Asia/Baghdad')->format('Y-m-d H:i'),
+                    'by' => $d->issuer?->name, 'valid' => $d->isValid(), 'reason' => $d->revoke_reason, 'url' => $d->verifyUrl()]),
+            'programOptions' => Gate::allows('change-student-status', $student) && $student->status === 'active'
+                ? Program::visibleTo($request->user())->where('is_active', true)->where('id', '!=', $currentProgramId)
+                    ->whereHas('curricula', fn ($c) => $c->where('status', 'approved'))
+                    ->with('department:id,name_ar')->orderBy('name_ar')->get()
+                    ->map(fn ($p) => ['id' => $p->id, 'name' => $p->name_ar, 'department' => $p->department->name_ar, 'years' => $p->duration_years])
+                : [],
         ]);
     }
 
@@ -172,11 +186,20 @@ class StudentController extends Controller
     {
         Gate::authorize('change-student-status', $student);
         $data = $request->validate([
-            'to' => ['required', Rule::in(array_keys(Student::STATUSES))],
+            'to' => ['required', Rule::in([...array_keys(Student::STATUSES), 'program_change'])],
+            'program_id' => ['required_if:to,program_change', 'nullable', 'exists:programs,id'],
+            'stage' => ['required_if:to,program_change', 'nullable', 'integer', 'min:1', 'max:6'],
             'order_id' => ['required', 'exists:administrative_orders,id'],
             'effective_on' => ['nullable', 'date'],
             'notes' => ['nullable', 'string', 'max:500'],
-        ], [], ['order_id' => 'الأمر الإداري']);
+        ], [], ['order_id' => 'الأمر الإداري', 'program_id' => 'البرنامج', 'stage' => 'المرحلة']);
+
+        if ($data['to'] === 'program_change') {
+            $program = Program::visibleTo($request->user())->findOrFail($data['program_id']);
+            $this->service->changeProgram($student, $program, (int) $data['stage'], AdministrativeOrder::findOrFail($data['order_id']), $request->user(), $data['notes'] ?? null);
+
+            return back()->with('success', 'نُقل الطالب إلى «'.$program->name_ar.'». بقي رقمه الجامعي وسجله السابق كما هو.');
+        }
 
         $this->service->changeStatus($student, $data['to'], AdministrativeOrder::findOrFail($data['order_id']), $request->user(), $data['notes'] ?? null, $data['effective_on'] ?? null);
 

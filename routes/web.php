@@ -11,17 +11,25 @@ use App\Http\Controllers\PolicyController;
 use App\Http\Controllers\PortalController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProgressionController;
+use App\Http\Controllers\ReportController;
 use App\Http\Controllers\StructureAdminController;
 use App\Http\Controllers\StructureController;
 use App\Http\Controllers\StudentAccountController;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\VerifyController;
 use App\Http\Middleware\SetLocale;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Validation\Rule;
 
 Route::redirect('/', '/dashboard');
+
+// Public verification of printed documents (QR code).
+Route::middleware('throttle:30,1')->group(function () {
+    Route::get('/verify', [VerifyController::class, 'form'])->name('verify.form');
+    Route::get('/verify/{code}', [VerifyController::class, 'show'])->name('verify');
+});
 
 Route::post('/locale', function (Request $request) {
     $locale = $request->validate(['locale' => ['required', Rule::in(SetLocale::LOCALES)]])['locale'];
@@ -105,8 +113,11 @@ Route::middleware(['auth', 'active', 'password.changed', 'staff'])->group(functi
     Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
 
     Route::get('/audit', [AuditController::class, 'index'])->name('audit.index');
+    Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+    Route::get('/reports/export', [ReportController::class, 'export'])->name('reports.export');
 
     Route::post('/students/{student}/account', [StudentAccountController::class, 'issue'])->name('students.account');
+    Route::post('/documents/{document}/revoke', [VerifyController::class, 'revoke'])->name('documents.revoke');
     Route::post('/student-accounts', [StudentAccountController::class, 'bulk'])->name('students.accounts.bulk');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -117,6 +128,7 @@ Route::middleware(['auth', 'active', 'password.changed', 'staff'])->group(functi
 Route::middleware(['auth', 'active', 'password.changed'])->group(function () {
     Route::get('/portal', [PortalController::class, 'home'])->name('portal.home');
     Route::get('/students/{student}/transcript.pdf', [DocumentController::class, 'transcript'])->name('students.transcript');
+    Route::get('/students/{student}/graduation.pdf', [DocumentController::class, 'graduation'])->name('students.graduation');
 });
 
 Route::middleware(['auth', 'active'])->get('/password/first', [PortalController::class, 'password'])->name('password.first');

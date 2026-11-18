@@ -7,6 +7,7 @@ use App\Models\AdministrativeOrder;
 use App\Models\CurriculumVersion;
 use App\Models\Program;
 use App\Models\Student;
+use App\Models\StudentProgram;
 use App\Models\StudentStatusChange;
 use App\Models\User;
 use App\Support\AuditContext;
@@ -108,6 +109,46 @@ class StudentService
                 'notes' => $notes, 'created_by' => $user->id,
             ]);
             $student->update(['status' => $to]);
+        }));
+    }
+
+    /**
+     * Transfer to another department/program inside the university: the person keeps one record and number;
+     * the old program is closed (kept in history) and the new one starts on its latest approved curriculum.
+     * Course equivalence is a policy decision and is not done here; earlier results stay on the transcript.
+     */
+    public function changeProgram(Student $student, Program $program, int $stage, AdministrativeOrder $order, User $user, ?string $notes = null): StudentProgram
+    {
+        if ($student->status !== 'active') {
+            throw new WorkflowException('لا يُنقل بين الأقسام إلا الطالب المستمر.');
+        }
+        if (! in_array($order->type, ['program_change', 'other'], true)) {
+            throw new WorkflowException('نوع الأمر الإداري لا يناسب هذا التغيير. المطلوب: «'.AdministrativeOrder::TYPES['program_change'].'».');
+        }
+        $current = $student->programs()->where('is_current', true)->with('program')->first();
+        if ($current?->program_id === $program->id) {
+            throw new WorkflowException('الطالب مسجل أصلاً في هذا البرنامج.');
+        }
+        if ($stage > $program->duration_years) {
+            throw new WorkflowException('المرحلة أكبر من مدة دراسة البرنامج.');
+        }
+        $curriculum = $program->curricula()->where('status', 'approved')->orderByDesc('version')->first()
+            ?? throw new WorkflowException('لا يوجد منهج معتمد للبرنامج الجديد.');
+        $year = AcademicYear::where('is_current', true)->first() ?? AcademicYear::latest('starts_on')->firstOrFail();
+
+        return DB::transaction(fn () => AuditContext::as($user->id, $order->reference(), function () use ($student, $program, $stage, $order, $user, $notes, $current, $curriculum, $year) {
+            $current?->update(['is_current' => false, 'end_year_id' => $year->id, 'end_reason' => 'program_change']);
+            $new = $student->programs()->create([
+                'program_id' => $program->id, 'curriculum_version_id' => $curriculum->id, 'stage' => $stage,
+                'start_year_id' => $year->id, 'is_current' => true, 'administrative_order_id' => $order->id,
+            ]);
+            StudentStatusChange::create([
+                'student_id' => $student->id, 'from_status' => 'active', 'to_status' => 'active',
+                'effective_on' => $order->issued_on, 'administrative_order_id' => $order->id, 'created_by' => $user->id,
+                'notes' => trim('تغيير قسم/برنامج: '.($current?->program?->name_ar ?? '—').' ← '.$program->name_ar.' (المرحلة '.$stage.'). '.($notes ?? '')),
+            ]);
+
+            return $new;
         }));
     }
 

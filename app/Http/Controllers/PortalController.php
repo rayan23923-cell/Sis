@@ -1,0 +1,59 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Enrollment;
+use App\Models\Student;
+use App\Services\Documents\TranscriptService;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Inertia\Response;
+
+/** What a student sees: their record, locked results by year, current courses and their transcript. */
+class PortalController extends Controller
+{
+    public function home(Request $request, TranscriptService $transcripts): Response|RedirectResponse
+    {
+        $student = Student::where('user_id', $request->user()->id)->first();
+        if (! $student) {
+            return redirect()->route('dashboard');
+        }
+        $t = $transcripts->build($student);
+        $student->load(['statusChanges' => fn ($q) => $q->latest('effective_on'), 'statusChanges.order']);
+
+        $current = Enrollment::where('student_id', $student->id)->where('status', '!=', 'withdrawn')
+            ->whereHas('offering.term.year', fn ($y) => $y->where('is_current', true))
+            ->with(['offering.course', 'offering.term', 'offering.teacher:id,name', 'results' => fn ($q) => $q->where('is_current', true)->where('status', 'locked')])
+            ->get()->sortBy(fn ($e) => [$e->offering->term->code, $e->offering->course->code])->values()
+            ->map(function ($e) {
+                $r = $e->results->sortByDesc('exam_round')->first();
+
+                return [
+                    'code' => $e->offering->course->code, 'name' => $e->offering->course->name_ar, 'term' => $e->offering->term->name_ar,
+                    'teacher' => $e->offering->teacher?->name, 'credits' => (float) $e->offering->course->credit_hours, 'carried' => (bool) $e->is_carried,
+                    'result' => $r ? ['mark' => (float) $r->rounded_mark, 'grade' => $r->grade_name_ar, 'outcome' => $r->outcome, 'round' => $r->exam_round] : null,
+                ];
+            });
+
+        return Inertia::render('Portal/Home', [
+            'student' => [
+                'id' => $student->id, 'name' => $student->name_ar, 'name_en' => $student->name_en, 'number' => $student->university_number,
+                'status' => $student->status, 'status_label' => $t['status'], 'stage' => $t['stage'], 'system' => $t['system'],
+                'program' => $t['program']?->name_ar, 'department' => $t['program']?->department->name_ar, 'college' => $t['program']?->department->college->name_ar,
+                'admission_year' => $student->admissionYear?->name,
+            ],
+            'current' => $current,
+            'years' => collect($t['years'])->reverse()->values(),
+            'official' => $t['official'],
+            'history' => $student->statusChanges->map(fn ($c) => [
+                'to' => Student::STATUSES[$c->to_status] ?? $c->to_status, 'on' => $c->effective_on?->toDateString(), 'order' => $c->order?->reference(), 'notes' => $c->notes,
+            ]),
+        ]);
+    }
+
+    public function password(): Response
+    {
+        return Inertia::render('Portal/Password');
+    }
+}

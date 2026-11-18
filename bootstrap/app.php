@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Middleware\EnsurePasswordChanged;
+use App\Http\Middleware\EnsureStaff;
 use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Services\WorkflowException;
@@ -22,7 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->trustProxies(at: '*');
-        $middleware->alias(['active' => EnsureUserIsActive::class]);
+        $middleware->alias(['active' => EnsureUserIsActive::class, 'staff' => EnsureStaff::class, 'password.changed' => EnsurePasswordChanged::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // A business rule stopped the action: go back and show the reason, never a 500 page.

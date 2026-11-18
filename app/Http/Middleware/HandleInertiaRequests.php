@@ -48,6 +48,7 @@ class HandleInertiaRequests extends Middleware
                 'error' => fn () => $request->session()->get('error'),
                 'problems' => fn () => $request->session()->get('problems'),
                 'created_order_id' => fn () => $request->session()->get('created_order_id'),
+                'credentials' => fn () => $request->session()->get('credentials'),
             ],
         ];
     }

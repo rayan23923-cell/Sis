@@ -1,18 +1,25 @@
 <script setup>
 import { computed, ref } from 'vue';
-import { Link, useForm, usePage } from '@inertiajs/vue3';
+import { Link, router, useForm, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import PageHeader from '@/Components/PageHeader.vue';
 import Badge from '@/Components/Badge.vue';
 import Modal from '@/Components/Modal.vue';
 import OrderModal from '@/Components/OrderModal.vue';
+import CredentialsModal from '@/Components/CredentialsModal.vue';
 import InputError from '@/Components/InputError.vue';
 import EmptyState from '@/Components/EmptyState.vue';
 import { studentStatus, outcome, resultStatus, systems, roundName } from '@/lib/labels';
-import { ArrowPathIcon, BookOpenIcon, ClockIcon, DocumentTextIcon, PlusIcon, PrinterIcon } from '@heroicons/vue/24/outline';
+import { ArrowPathIcon, BookOpenIcon, ClockIcon, DocumentTextIcon, PlusIcon, PrinterIcon, KeyIcon } from '@heroicons/vue/24/outline';
 
 const props = defineProps({ student: Object, programs: Array, history: Array, courses: Array, statuses: Object, transitions: Array, orders: Array, orderTypes: Object });
 const page = usePage();
+const issuing = ref(false);
+const issueAccount = () => {
+    if (props.student.has_account && !confirm('ستُلغى كلمة المرور الحالية للطالب. متابعة؟')) return;
+    issuing.value = true;
+    router.post(route('students.account', props.student.id), {}, { preserveScroll: true, onFinish: () => (issuing.value = false) });
+};
 const current = computed(() => props.programs.find((p) => p.current));
 const tab = ref('courses');
 
@@ -61,6 +68,15 @@ const passedCount = computed(() => props.courses.filter((c) => c.result?.status 
                             <dt class="text-slate-500">{{ k }}</dt><dd class="font-semibold text-slate-800" :class="ltr && 'font-mono'" :dir="ltr ? 'ltr' : null">{{ v }}</dd>
                         </div>
                     </dl>
+                </section>
+                <section v-if="student.can_issue_account" class="card p-5">
+                    <div class="flex items-center justify-between gap-3">
+                        <div>
+                            <h2 class="card-title flex items-center gap-2"><KeyIcon class="h-5 w-5 text-brand-600" /> بوابة الطالب</h2>
+                            <p class="mt-1 text-xs text-slate-500">{{ student.has_account ? 'للطالب حساب. يمكنك إصدار كلمة مرور مؤقتة جديدة إن نسيها.' : 'لا يوجد حساب بعد. يدخل الطالب برقمه الجامعي.' }}</p>
+                        </div>
+                        <button class="btn-secondary shrink-0" :disabled="issuing" @click="issueAccount">{{ student.has_account ? 'كلمة مرور جديدة' : 'إنشاء حساب' }}</button>
+                    </div>
                 </section>
                 <section class="card">
                     <div class="card-header"><h2 class="card-title">المسار الدراسي</h2></div>
@@ -160,6 +176,7 @@ const passedCount = computed(() => props.courses.filter((c) => c.result?.status 
                 <div class="mt-6 flex justify-end gap-2"><button type="button" class="btn-secondary" @click="showStatus = false">إلغاء</button><button class="btn-primary" :disabled="form.processing || !form.to">تأكيد التغيير</button></div>
             </form>
         </Modal>
+        <CredentialsModal />
         <OrderModal :show="showOrder" :types="orderTypes" :type="transition?.order_type ?? ''" @close="showOrder = false" @saved="orderSaved" />
     </AppLayout>
 </template>

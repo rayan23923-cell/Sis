@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Models\Student;
+use App\Models\User;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -28,7 +30,7 @@ class LoginRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'email' => ['required', 'string', 'email'],
+            'email' => ['required', 'string', 'max:150'],
             'password' => ['required', 'string'],
         ];
     }
@@ -42,7 +44,7 @@ class LoginRequest extends FormRequest
     {
         $this->ensureIsNotRateLimited();
 
-        if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
+        if (! Auth::attempt(['email' => $this->loginEmail(), 'password' => $this->string('password')->toString()], $this->boolean('remember'))) {
             RateLimiter::hit($this->throttleKey());
 
             throw ValidationException::withMessages([
@@ -51,6 +53,19 @@ class LoginRequest extends FormRequest
         }
 
         RateLimiter::clear($this->throttleKey());
+    }
+
+    /** Students sign in with their university number; staff with their email. */
+    private function loginEmail(): string
+    {
+        $login = trim(strtr($this->string('email')->toString(), ['٠' => '0', '١' => '1', '٢' => '2', '٣' => '3', '٤' => '4', '٥' => '5', '٦' => '6', '٧' => '7', '٨' => '8', '٩' => '9']));
+        if (! str_contains($login, '@')) {
+            $user = Student::where('university_number', $login)->whereNotNull('user_id')->first()?->user_id;
+
+            return $user ? (string) User::whereKey($user)->value('email') : '';
+        }
+
+        return $login;
     }
 
     /**

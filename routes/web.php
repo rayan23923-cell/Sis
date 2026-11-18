@@ -8,17 +8,19 @@ use App\Http\Controllers\OfferingAdminController;
 use App\Http\Controllers\OfferingController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\PolicyController;
+use App\Http\Controllers\PortalController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProgressionController;
 use App\Http\Controllers\StructureAdminController;
 use App\Http\Controllers\StructureController;
+use App\Http\Controllers\StudentAccountController;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/dashboard');
 
-Route::middleware(['auth', 'active'])->group(function () {
+Route::middleware(['auth', 'active', 'password.changed', 'staff'])->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
 
     Route::get('/students', [StudentController::class, 'index'])->name('students.index');
@@ -53,7 +55,6 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/offerings/{offering}/marks.xlsx', [ImportController::class, 'marksTemplate'])->name('offerings.marks.template');
     Route::post('/offerings/{offering}/marks/import', [ImportController::class, 'marksImport'])->name('offerings.marks.import');
     Route::get('/progression/pdf', [DocumentController::class, 'yearResults'])->name('progression.pdf');
-    Route::get('/students/{student}/transcript.pdf', [DocumentController::class, 'transcript'])->name('students.transcript');
     Route::get('/offerings/{offering}/sheet.pdf', [DocumentController::class, 'gradeSheet'])->name('offerings.sheet');
     Route::post('/progression/save', [ProgressionController::class, 'save'])->name('progression.save');
     Route::post('/progression/apply', [ProgressionController::class, 'apply'])->name('progression.apply');
@@ -94,8 +95,19 @@ Route::middleware(['auth', 'active'])->group(function () {
 
     Route::get('/audit', [AuditController::class, 'index'])->name('audit.index');
 
+    Route::post('/students/{student}/account', [StudentAccountController::class, 'issue'])->name('students.account');
+    Route::post('/student-accounts', [StudentAccountController::class, 'bulk'])->name('students.accounts.bulk');
+
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
 });
+
+// Shared by staff and students (each checks its own access).
+Route::middleware(['auth', 'active', 'password.changed'])->group(function () {
+    Route::get('/portal', [PortalController::class, 'home'])->name('portal.home');
+    Route::get('/students/{student}/transcript.pdf', [DocumentController::class, 'transcript'])->name('students.transcript');
+});
+
+Route::middleware(['auth', 'active'])->get('/password/first', [PortalController::class, 'password'])->name('password.first');
 
 require __DIR__.'/auth.php';

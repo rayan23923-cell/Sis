@@ -134,6 +134,8 @@ class StudentController extends Controller
                 'status' => $student->status,
                 'channel' => $student->admission_channel,
                 'admission_year' => $student->admissionYear?->name,
+                'has_account' => $student->user_id !== null,
+                'can_issue_account' => Gate::allows('admit-students') && ! in_array($student->status, ['dismissed', 'withdrawn', 'transferred_out'], true),
             ],
             'programs' => $student->programs->map(fn ($sp) => [
                 'id' => $sp->id, 'current' => $sp->is_current, 'stage' => $sp->stage,

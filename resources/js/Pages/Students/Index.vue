@@ -1,5 +1,5 @@
 <script setup>
-import { computed, reactive, watch } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 import { Link, router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import PageHeader from '@/Components/PageHeader.vue';
@@ -7,8 +7,8 @@ import Badge from '@/Components/Badge.vue';
 import Pagination from '@/Components/Pagination.vue';
 import EmptyState from '@/Components/EmptyState.vue';
 import { studentStatus } from '@/lib/labels';
-import { MagnifyingGlassIcon, PlusIcon, UserGroupIcon, FunnelIcon } from '@heroicons/vue/24/outline';
-import { ArrowUpTrayIcon } from '@heroicons/vue/24/outline';
+import axios from 'axios';
+import { MagnifyingGlassIcon, PlusIcon, UserGroupIcon, FunnelIcon, ArrowUpTrayIcon, KeyIcon } from '@heroicons/vue/24/outline';
 
 const props = defineProps({ students: Object, filters: Object, colleges: Array, programs: Array, statuses: Object });
 const page = usePage();
@@ -20,15 +20,36 @@ watch(f, () => {
     clearTimeout(t);
     t = setTimeout(() => router.get(route('students.index'), Object.fromEntries(Object.entries(f).filter(([, v]) => v)), { preserveState: true, replace: true }), 300);
 });
+const issuing = ref(false);
+const bulkError = ref('');
+const bulkAccounts = async () => {
+    const p = props.programs.find((x) => x.id == f.program);
+    if (!confirm(`إنشاء حسابات بوابة لكل طلبة «${p?.name}» المرحلة ${f.stage} الذين ليس لهم حساب؟ ستُنزَّل قسائم الدخول PDF مرة واحدة فقط.`)) return;
+    issuing.value = true;
+    try {
+        const r = await axios.post(route('students.accounts.bulk'), { program: f.program, stage: f.stage }, { responseType: 'blob' });
+        if (r.headers['content-type']?.includes('pdf')) {
+            const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(r.data), download: `portal-accounts-${f.stage}.pdf` });
+            a.click();
+        }
+    } catch (e) {
+        bulkError.value = JSON.parse(await e.response?.data?.text?.() || '{}').message ?? 'تعذر إنشاء الحسابات.';
+        setTimeout(() => (bulkError.value = ''), 8000);
+    } finally {
+        issuing.value = false;
+    }
+};
 const reset = () => Object.assign(f, { q: '', college: '', program: '', status: '', stage: '' });
 </script>
 
 <template>
     <AppLayout title="الطلبة">
         <PageHeader title="الطلبة" :subtitle="`${students.total} طالب ضمن صلاحياتك`">
+            <button v-if="page.props.can.admit && f.program && f.stage" class="btn-secondary" :disabled="issuing" @click="bulkAccounts"><KeyIcon class="h-4 w-4" /> حسابات البوابة للمرحلة</button>
             <Link v-if="page.props.can.admit" :href="route('students.import')" class="btn-secondary"><ArrowUpTrayIcon class="h-4 w-4" /> استيراد من Excel</Link>
             <Link v-if="page.props.can.admit" :href="route('students.create')" class="btn-primary"><PlusIcon class="h-4 w-4" /> قبول طالب</Link>
         </PageHeader>
+        <p v-if="bulkError" class="mb-4 rounded-xl bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{{ bulkError }}</p>
 
         <div class="card">
             <div class="grid gap-3 border-b border-slate-100 p-4 sm:grid-cols-2 lg:grid-cols-6">

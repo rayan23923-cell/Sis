@@ -22,8 +22,11 @@ class PasswordController extends Controller
 
         $request->user()->update([
             'password' => Hash::make($validated['password']),
+            'must_change_password' => false,
         ]);
 
-        return back();
+        return $request->routeIs('password.first') || $request->boolean('first')
+            ? redirect()->route('dashboard')->with('success', 'تم تعيين كلمة المرور الجديدة.')
+            : back();
     }
 }

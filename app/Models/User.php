@@ -8,10 +8,11 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'password', 'locale', 'is_active'])]
+#[Fillable(['name', 'email', 'password', 'locale', 'is_active', 'must_change_password'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -27,6 +28,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
+            'must_change_password' => 'boolean',
         ];
     }
 
@@ -47,6 +49,18 @@ class User extends Authenticatable
     }
 
     /** A teacher with no other role sees only the courses they teach. */
+    /** The student record this account belongs to (student portal), if any. */
+    public function student(): HasOne
+    {
+        return $this->hasOne(Student::class);
+    }
+
+    /** A portal-only account: linked to a student and holding no staff role. */
+    public function isStudentOnly(): bool
+    {
+        return $this->roles() === [] && $this->student()->exists();
+    }
+
     public function isOnlyTeacher(): bool
     {
         return $this->roles() === ['teacher'];

@@ -92,7 +92,7 @@ const passedCount = computed(() => props.courses.filter((c) => c.result?.status 
                                 <p class="font-semibold text-slate-800">{{ d.type }} <a :href="d.url" target="_blank" class="ltr ms-1 font-mono text-xs text-brand-700 hover:underline">{{ d.code }}</a></p>
                                 <p class="text-xs text-slate-400"><span class="ltr">{{ d.at }}</span> · {{ d.by }}<span v-if="!d.valid" class="text-rose-600"> · ملغاة: {{ d.reason }}</span></p>
                             </div>
-                            <button v-if="d.valid && student.can_issue_account !== undefined && page.props.can.admit" class="text-xs font-bold text-rose-600 hover:underline" @click="revoke(d)">إلغاء</button>
+                            <button v-if="d.valid && student.can_issue_account !== undefined && page.props.can.admit" class="text-xs font-bold text-rose-600 hover:underline" @click="revoke(d)">إلغاء الوثيقة</button>
                         </li>
                     </ul>
                 </section>

@@ -10,14 +10,14 @@ let seq = 0;
 const push = (type, text, problems = null) => {
     const id = ++seq;
     items.value.push({ id, type, text, problems });
-    setTimeout(() => dismiss(id), type === 'error' ? 12000 : 5000);
+    if (!problems?.length) setTimeout(() => dismiss(id), type === 'error' ? 12000 : 5000);
 };
 const dismiss = (id) => (items.value = items.value.filter((i) => i.id !== id));
 
 watch(
     () => page.props.flash,
     (f) => {
-        if (f?.success) push('success', f.success);
+        if (f?.success) push('success', f.success, !f?.error && f.problems ? Object.values(f.problems) : null);
         if (f?.error) push('error', f.error, f.problems ? Object.values(f.problems) : null);
     },
     { immediate: true, deep: true },
@@ -42,7 +42,8 @@ watch(
                 <div class="min-w-0 flex-1 text-sm font-semibold">
                     {{ i.text }}
                     <ul v-if="i.problems?.length" class="mt-1 list-inside list-disc text-xs font-normal">
-                        <li v-for="(p, k) in i.problems.slice(0, 5)" :key="k">{{ p }}</li>
+                        <li v-for="(p, k) in i.problems.slice(0, 8)" :key="k">{{ p }}</li>
+                        <li v-if="i.problems.length > 8" class="list-none">و{{ i.problems.length - 8 }} أخرى…</li>
                     </ul>
                 </div>
                 <button class="text-current opacity-50 hover:opacity-100" @click="dismiss(i.id)"><XMarkIcon class="h-4 w-4" /></button>

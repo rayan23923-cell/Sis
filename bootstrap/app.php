@@ -28,10 +28,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // A business rule stopped the action: go back and show the reason, never a 500 page.
         $exceptions->render(function (WorkflowException $e, Request $request) {
             if ($request->expectsJson()) {
-                return response()->json(['message' => $e->getMessage()], 422);
+                return response()->json(['message' => $e->getMessage(), 'problems' => $e->problems], 422);
             }
 
-            return back()->with('error', $e->getMessage());
+            return back()->with('error', $e->getMessage())->with('problems', $e->problems ?: null);
         });
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),

@@ -8,6 +8,7 @@ import Pagination from '@/Components/Pagination.vue';
 import EmptyState from '@/Components/EmptyState.vue';
 import { studentStatus } from '@/lib/labels';
 import { MagnifyingGlassIcon, PlusIcon, UserGroupIcon, FunnelIcon } from '@heroicons/vue/24/outline';
+import { ArrowUpTrayIcon } from '@heroicons/vue/24/outline';
 
 const props = defineProps({ students: Object, filters: Object, colleges: Array, programs: Array, statuses: Object });
 const page = usePage();
@@ -25,6 +26,7 @@ const reset = () => Object.assign(f, { q: '', college: '', program: '', status: 
 <template>
     <AppLayout title="الطلبة">
         <PageHeader title="الطلبة" :subtitle="`${students.total} طالب ضمن صلاحياتك`">
+            <Link v-if="page.props.can.admit" :href="route('students.import')" class="btn-secondary"><ArrowUpTrayIcon class="h-4 w-4" /> استيراد من Excel</Link>
             <Link v-if="page.props.can.admit" :href="route('students.create')" class="btn-primary"><PlusIcon class="h-4 w-4" /> قبول طالب</Link>
         </PageHeader>
 

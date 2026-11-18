@@ -4,9 +4,10 @@
 #   web  - nginx serving public/ and handing PHP to `app`
 # Same shape as FileNest's deploy/vps/Dockerfile; the server is ARM (aarch64), these images are multi-arch.
 FROM php:8.4-fpm-alpine AS base
-RUN apk add --no-cache icu-libs libzip mariadb-client \
-    && apk add --no-cache --virtual .build $PHPIZE_DEPS icu-dev libzip-dev linux-headers \
-    && docker-php-ext-install -j"$(nproc)" pdo_mysql intl zip bcmath opcache pcntl \
+RUN apk add --no-cache icu-libs libzip libpng freetype libjpeg-turbo mariadb-client \
+    && apk add --no-cache --virtual .build $PHPIZE_DEPS icu-dev libzip-dev libpng-dev freetype-dev libjpeg-turbo-dev linux-headers \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install -j"$(nproc)" pdo_mysql intl zip bcmath opcache pcntl gd \
     && apk del .build
 
 FROM base AS vendor

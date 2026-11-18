@@ -16,7 +16,7 @@ jobs:
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
-          extensions: intl, pdo_sqlite, bcmath
+          extensions: intl, pdo_sqlite, bcmath, gd, zip
           coverage: none
       - uses: actions/setup-node@v4
         with:

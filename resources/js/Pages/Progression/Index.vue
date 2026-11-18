@@ -9,7 +9,7 @@ import OrderModal from '@/Components/OrderModal.vue';
 import EmptyState from '@/Components/EmptyState.vue';
 import InputError from '@/Components/InputError.vue';
 import { systems } from '@/lib/labels';
-import { ArrowTrendingUpIcon, CalculatorIcon, CheckBadgeIcon, ExclamationTriangleIcon, PlusIcon } from '@heroicons/vue/24/outline';
+import { ArrowTrendingUpIcon, CalculatorIcon, CheckBadgeIcon, ExclamationTriangleIcon, PlusIcon, PrinterIcon } from '@heroicons/vue/24/outline';
 
 const props = defineProps({ years: Array, programs: Array, selected: Object, rows: Array, decisions: Object, canDecide: Boolean, orders: Array, orderTypes: Object });
 const sel = reactive({ ...props.selected });
@@ -57,6 +57,7 @@ const orderSaved = (id) => router.reload({ only: ['orders'], onSuccess: () => { 
             <div class="flex flex-wrap items-center gap-2 border-b border-slate-100 p-4">
                 <Badge v-for="(n, d) in summary.byDecision" :key="d" :tone="tone[d]">{{ decisions[d] }}: {{ n }}</Badge>
                 <Badge v-if="program" tone="slate" class="mr-auto">{{ systems[program.system] }}</Badge>
+                <a v-if="rows.length" :href="route('progression.pdf', { program: sel.program, stage: sel.stage, year: sel.year })" target="_blank" class="btn-secondary"><PrinterIcon class="h-4 w-4" /> طباعة PDF</a>
                 <template v-if="canDecide">
                     <button class="btn-secondary" :disabled="busy || !summary.ready" @click="save"><CalculatorIcon class="h-4 w-4" /> حفظ القرارات كمسودة</button>
                     <button class="btn-success" :disabled="!summary.saved" @click="showApply = true"><CheckBadgeIcon class="h-4 w-4" /> تطبيق بأمر إداري</button>

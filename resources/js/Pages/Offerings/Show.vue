@@ -12,7 +12,7 @@ import EmptyState from '@/Components/EmptyState.vue';
 import { offeringStatus, outcome, resultStatus, roundName, systems } from '@/lib/labels';
 import {
     ArrowUturnRightIcon, CalculatorIcon, CheckBadgeIcon, CheckIcon, CloudArrowUpIcon, ExclamationTriangleIcon,
-    LockClosedIcon, MagnifyingGlassIcon, Cog6ToothIcon, UserMinusIcon, PencilSquareIcon, PlusIcon, ArrowPathIcon, UsersIcon, InformationCircleIcon,
+    LockClosedIcon, MagnifyingGlassIcon, PrinterIcon, ArrowDownTrayIcon, ArrowUpTrayIcon, Cog6ToothIcon, UserMinusIcon, PencilSquareIcon, PlusIcon, ArrowPathIcon, UsersIcon, InformationCircleIcon,
 } from '@heroicons/vue/24/outline';
 
 const props = defineProps({ offering: Object, round: Number, components: Array, rows: Array, gradeScale: Array, official: Boolean, perm: Object, allComponents: Array, orders: Array, statuses: Object });
@@ -64,6 +64,13 @@ const save = (compute = false) => {
     saving.value = true;
     if (!Object.keys(rows).length) return post('offerings.compute');
     router.post(route('offerings.marks', props.offering.id), { rows, compute }, { preserveScroll: true, onFinish: () => (saving.value = false) });
+};
+const importMarks = (e) => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    saving.value = true;
+    router.post(route('offerings.marks.import', props.offering.id), { file }, { forceFormData: true, preserveScroll: true, onFinish: () => (saving.value = false) });
 };
 const post = (name, data = {}, opts = {}) => {
     saving.value = true;
@@ -162,6 +169,7 @@ const outcomeTone = { pass: 'text-emerald-700', fail: 'text-rose-700', resit: 't
             </template>
             <button v-if="perm.enroll && !rows.length" class="btn-secondary" @click="post('offerings.enroll')"><UsersIcon class="h-4 w-4" /> تسجيل طلبة المرحلة</button>
             <button v-if="perm.manage" class="btn-secondary" @click="showManage = true"><Cog6ToothIcon class="h-4 w-4" /> إدارة الشعبة</button>
+            <a v-if="rows.length" :href="route('offerings.sheet', { offering: offering.id, round })" target="_blank" class="btn-secondary"><PrinterIcon class="h-4 w-4" /> قائمة الدرجات PDF</a>
         </PageHeader>
 
         <!-- workflow stepper -->
@@ -203,6 +211,11 @@ const outcomeTone = { pass: 'text-emerald-700', fail: 'text-rose-700', resit: 't
                             <template v-if="perm.edit && !viewingPast">
                                 <button class="btn-secondary" :disabled="!dirty || hasInvalid || saving" @click="save(false)"><CheckIcon class="h-4 w-4" /> حفظ <span v-if="dirty" class="rounded-full bg-brand-100 px-1.5 text-[11px] text-brand-800">{{ changedRows.length }}</span></button>
                                 <button class="btn-primary" :disabled="hasInvalid || saving" @click="save(true)"><CalculatorIcon class="h-4 w-4" /> حفظ واحتساب</button>
+                                <a :href="route('offerings.marks.template', offering.id)" class="btn-ghost" title="تنزيل الدرجات بملف Excel لتعبئتها"><ArrowDownTrayIcon class="h-4 w-4" /> Excel</a>
+                                <label class="btn-ghost cursor-pointer" :class="(dirty || saving) && 'pointer-events-none opacity-50'" title="رفع ملف Excel المعبّأ">
+                                    <ArrowUpTrayIcon class="h-4 w-4" /> رفع
+                                    <input type="file" class="hidden" accept=".xlsx,.xls,.csv" @change="importMarks" />
+                                </label>
                             </template>
                             <button v-if="perm.submit && !viewingPast" class="btn-success" :disabled="dirty || saving || stats.computed < stats.n || stats.stale > 0"
                                 @click="ask('رفع النتائج إلى اللجنة الامتحانية', 'بعد الرفع لا يمكنك تعديل الدرجات إلا إذا أعادتها اللجنة. تأكد من مراجعة جميع الدرجات.', () => post('offerings.submit'), 'success')">

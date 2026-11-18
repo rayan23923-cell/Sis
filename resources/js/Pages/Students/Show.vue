@@ -9,7 +9,7 @@ import OrderModal from '@/Components/OrderModal.vue';
 import InputError from '@/Components/InputError.vue';
 import EmptyState from '@/Components/EmptyState.vue';
 import { studentStatus, outcome, resultStatus, systems, roundName } from '@/lib/labels';
-import { ArrowPathIcon, BookOpenIcon, ClockIcon, DocumentTextIcon, PlusIcon } from '@heroicons/vue/24/outline';
+import { ArrowPathIcon, BookOpenIcon, ClockIcon, DocumentTextIcon, PlusIcon, PrinterIcon } from '@heroicons/vue/24/outline';
 
 const props = defineProps({ student: Object, programs: Array, history: Array, courses: Array, statuses: Object, transitions: Array, orders: Array, orderTypes: Object });
 const page = usePage();
@@ -48,6 +48,7 @@ const passedCount = computed(() => props.courses.filter((c) => c.result?.status 
                     <span v-if="student.name_en" dir="ltr" class="text-xs">{{ student.name_en }}</span>
                 </div>
             </template>
+            <a :href="route('students.transcript', student.id)" target="_blank" class="btn-secondary"><PrinterIcon class="h-4 w-4" /> كشف الدرجات PDF</a>
             <button v-if="transitions.length" class="btn-primary" @click="openStatus('')"><ArrowPathIcon class="h-4 w-4" /> تغيير الحالة</button>
         </PageHeader>
 

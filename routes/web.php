@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\AuditController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DocumentController;
+use App\Http\Controllers\ImportController;
 use App\Http\Controllers\OfferingAdminController;
 use App\Http\Controllers\OfferingController;
 use App\Http\Controllers\OrderController;
@@ -22,6 +24,10 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/students', [StudentController::class, 'index'])->name('students.index');
     Route::get('/students/create', [StudentController::class, 'create'])->name('students.create');
     Route::get('/students/duplicates', [StudentController::class, 'duplicates'])->name('students.duplicates');
+    Route::get('/students/import', [ImportController::class, 'studentsForm'])->name('students.import');
+    Route::get('/students/import/template', [ImportController::class, 'studentsTemplate'])->name('students.import.template');
+    Route::post('/students/import/preview', [ImportController::class, 'studentsPreview'])->name('students.import.preview');
+    Route::post('/students/import/commit', [ImportController::class, 'studentsCommit'])->name('students.import.commit');
     Route::post('/students', [StudentController::class, 'store'])->name('students.store');
     Route::get('/students/{student}', [StudentController::class, 'show'])->name('students.show');
     Route::post('/students/{student}/status', [StudentController::class, 'changeStatus'])->name('students.status');
@@ -44,6 +50,11 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::post('/offerings/{offering}/results/{result}/correct', [OfferingController::class, 'correct'])->name('offerings.correct');
 
     Route::get('/progression', [ProgressionController::class, 'index'])->name('progression.index');
+    Route::get('/offerings/{offering}/marks.xlsx', [ImportController::class, 'marksTemplate'])->name('offerings.marks.template');
+    Route::post('/offerings/{offering}/marks/import', [ImportController::class, 'marksImport'])->name('offerings.marks.import');
+    Route::get('/progression/pdf', [DocumentController::class, 'yearResults'])->name('progression.pdf');
+    Route::get('/students/{student}/transcript.pdf', [DocumentController::class, 'transcript'])->name('students.transcript');
+    Route::get('/offerings/{offering}/sheet.pdf', [DocumentController::class, 'gradeSheet'])->name('offerings.sheet');
     Route::post('/progression/save', [ProgressionController::class, 'save'])->name('progression.save');
     Route::post('/progression/apply', [ProgressionController::class, 'apply'])->name('progression.apply');
 

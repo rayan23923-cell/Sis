@@ -1036,7 +1036,7 @@ namespace SisPanel
         // which also records the build it runs, then takes the newest package
         // from SIS's own hosting.
         const string LatestApi = "https://dental.azoclinic.duckdns.org/api/v1/offline/latest";
-        const string PackageApi = "https://files.azoclinic.duckdns.org/downloads/offline-latest.json";
+        const string PackageApi = "https://sis.azoclinic.duckdns.org/downloads/offline-latest.json";
         const string TagPrefix = "offline-build-";
         // Never replaced by an update: the data and this computer's settings.
         static readonly string[] KeepRoot = { "data", "config.txt", "caddy-data", "Caddyfile", "Corefile", "lan-ip.txt", "updates", "panel.ini" };
@@ -1146,7 +1146,7 @@ namespace SisPanel
             var latest = new JavaScriptSerializer().DeserializeObject(json) as Dictionary<string, object>;
             if (latest == null || !latest.ContainsKey("build") || !latest.ContainsKey("url")) return null;
             string url = (string)latest["url"];
-            if (url.StartsWith("/")) latest["url"] = "https://files.azoclinic.duckdns.org" + url;
+            if (url.StartsWith("/")) latest["url"] = "https://sis.azoclinic.duckdns.org" + url;
             int n = Convert.ToInt32(latest["build"]);
             if (n <= CurrentBuild) return null;
             string sha = latest.ContainsKey("sha256") ? latest["sha256"] as string : null;

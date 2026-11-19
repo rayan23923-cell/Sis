@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureOfflineActivated;
 use App\Http\Middleware\EnsurePasswordChanged;
 use App\Http\Middleware\EnsureStaff;
 use App\Http\Middleware\EnsureTwoFactor;
@@ -21,6 +22,8 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Before the login check, so an unactivated offline copy always leads to /activate.
+        $middleware->web(prepend: [EnsureOfflineActivated::class]);
         $middleware->web(append: [
             SetLocale::class,
             HandleInertiaRequests::class,

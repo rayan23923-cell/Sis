@@ -12,6 +12,7 @@ use App\Http\Controllers\MasterSheetController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OfferingAdminController;
 use App\Http\Controllers\OfferingController;
+use App\Http\Controllers\Offline\ActivationController;
 use App\Http\Controllers\OnlinePaymentController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\PolicyController;
@@ -221,6 +222,13 @@ Route::middleware(['auth', 'active', 'password.changed', 'two-factor', 'staff'])
 });
 
 Route::middleware(['auth', 'active'])->get('/password/first', [PortalController::class, 'password'])->name('password.first');
+
+// The offline server's activation page (same licensing portal as FileNest); see EnsureOfflineActivated.
+Route::get('/activate', [ActivationController::class, 'show']);
+Route::post('/activate', [ActivationController::class, 'store'])->middleware('throttle:10,1');
+
+// The university's name for the offline server's Wi-Fi pages (/setup).
+Route::get('/brand.json', fn () => response()->json(['name' => config('sis.university_name'), 'logo' => null]));
 
 require __DIR__.'/auth.php';
 

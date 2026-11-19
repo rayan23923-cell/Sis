@@ -66,3 +66,6 @@ Artisan::command('sis:payments-reconcile', function () {
 })->purpose('Confirm or expire open online payments with their gateways');
 
 Schedule::command('sis:payments-reconcile')->everyFiveMinutes()->withoutOverlapping();
+
+// Offline server: a daily backup of the database and files (does nothing unless BACKUP_DAILY is on).
+Schedule::command('backup:run')->hourly()->withoutOverlapping();

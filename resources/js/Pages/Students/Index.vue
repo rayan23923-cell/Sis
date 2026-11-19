@@ -15,6 +15,10 @@ const page = usePage();
 // an empty filter set arrives as [] (whose .shift is Array.prototype.shift), so read from a plain object
 const fl = Array.isArray(props.filters) ? {} : props.filters;
 const f = reactive({ q: fl.q ?? '', college: fl.college ?? '', program: fl.program ?? '', status: fl.status ?? '', stage: fl.stage ?? '', shift: fl.shift ?? '' });
+const showFilters = ref(false);
+const wide = ref(typeof window !== 'undefined' && window.matchMedia('(min-width: 640px)').matches);
+if (typeof window !== 'undefined') window.matchMedia('(min-width: 640px)').addEventListener?.('change', (e) => (wide.value = e.matches));
+const active = computed(() => ['college', 'program', 'stage', 'shift', 'status'].filter((k) => f[k]).length);
 const programs = computed(() => props.programs.filter((p) => !f.college || p.college_id == f.college));
 
 let t;
@@ -55,18 +59,37 @@ const reset = () => Object.assign(f, { q: '', college: '', program: '', status: 
 
         <div class="card">
             <div class="grid gap-3 border-b border-slate-100 p-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
-                <div class="relative lg:col-span-2">
-                    <MagnifyingGlassIcon class="pointer-events-none absolute start-3 top-2.5 h-5 w-5 text-slate-400" />
-                    <input v-model="f.q" type="search" class="input ps-10" placeholder="بحث بالاسم أو الرقم الجامعي أو الوطني" autofocus />
+                <div class="flex gap-2 sm:col-span-2">
+                    <div class="relative flex-1">
+                        <MagnifyingGlassIcon class="pointer-events-none absolute start-3 top-2.5 h-5 w-5 text-slate-400" />
+                        <input v-model="f.q" type="search" class="input ps-10" placeholder="بحث بالاسم أو الرقم الجامعي أو الوطني" />
+                    </div>
+                    <button type="button" class="btn shrink-0 border sm:hidden" :class="active ? 'border-brand-300 bg-brand-50 text-brand-800' : 'border-slate-200 bg-white text-slate-600'" @click="showFilters = !showFilters">
+                        <FunnelIcon class="h-4 w-4" /><span v-if="active" class="tabular-nums">{{ active }}</span>
+                    </button>
                 </div>
+                <template v-if="showFilters || wide">
                 <select v-model="f.college" class="input" @change="f.program = ''"><option value="">كل الكليات</option><option v-for="c in colleges" :key="c.id" :value="c.id">{{ c.name_ar }}</option></select>
                 <select v-model="f.program" class="input"><option value="">كل البرامج</option><option v-for="p in programs" :key="p.id" :value="p.id">{{ p.name }}</option></select>
                 <select v-model="f.stage" class="input"><option value="">كل المراحل</option><option v-for="s in 6" :key="s" :value="s">المرحلة {{ s }}</option></select>
                 <select v-model="f.shift" class="input"><option value="">كل الدوامات</option><option value="morning">صباحي</option><option value="evening">مسائي</option></select>
                 <select v-model="f.status" class="input"><option value="">كل الحالات</option><option v-for="(l, k) in statuses" :key="k" :value="k">{{ l }}</option></select>
+                </template>
             </div>
 
-            <div class="overflow-x-auto">
+            <ul v-if="students.data.length" class="divide-y divide-slate-100 sm:hidden">
+                <li v-for="s in students.data" :key="s.id">
+                    <Link :href="route('students.show', s.id)" class="flex items-center gap-3 px-4 py-3 active:bg-slate-50">
+                        <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full text-xs font-bold" :class="s.gender === 'f' ? 'bg-rose-50 text-rose-600' : 'bg-brand-50 text-brand-700'">{{ s.name.charAt(0) }}</span>
+                        <div class="min-w-0 flex-1">
+                            <p class="truncate font-bold text-slate-800">{{ s.name }}</p>
+                            <p class="truncate text-xs text-slate-500"><span class="ltr font-mono">{{ s.number }}</span> · {{ s.program }}<span v-if="s.stage"> · م{{ s.stage }}</span><span v-if="s.shift === 'evening'" class="font-bold text-violet-700"> · مسائي</span></p>
+                        </div>
+                        <Badge :map="studentStatus" :value="s.status" dot />
+                    </Link>
+                </li>
+            </ul>
+            <div class="overflow-x-auto" :class="students.data.length && 'hidden sm:block'">
                 <table v-if="students.data.length" class="table-base">
                     <thead><tr><th>الرقم الجامعي</th><th>الاسم</th><th>القسم / البرنامج</th><th>المرحلة</th><th>الحالة</th></tr></thead>
                     <tbody class="divide-y divide-slate-100">

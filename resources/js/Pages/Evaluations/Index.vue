@@ -72,7 +72,7 @@ const saveForm = () => {
                     <span>· الحد الأدنى {{ round.min }} إجابات للمادة</span>
                 </div>
 
-                <div v-if="results" class="mt-5 grid gap-4 sm:grid-cols-3">
+                <div v-if="results" class="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
                     <StatCard label="المعدل العام" :value="results.overall ? results.overall + ' / 5' : '—'" :hint="results.overall ? 'رضا ' + pct(results.overall) : 'لا توجد نتائج كافية بعد'" :icon="StarIcon" tone="amber" />
                     <StatCard label="الإجابات" :value="results.answers.toLocaleString('en-US')" :hint="`من ${results.enrolled.toLocaleString('en-US')} طالب مسجل`" :icon="UserGroupIcon" />
                     <StatCard label="نسبة المشاركة" :value="rate + '%'" hint="كلما ارتفعت كانت النتائج أدق" :icon="ArrowTrendingUpIcon" tone="emerald" />

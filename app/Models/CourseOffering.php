@@ -68,7 +68,8 @@ class CourseOffering extends Model
     public function scopeVisibleTo(Builder $q, User $user): Builder
     {
         if ($user->collegeScope() === null) {
-            return $q;
+            // an explicit always-true condition, so a caller's ->orWhere(...) widens nothing instead of narrowing to it
+            return $q->whereRaw('1 = 1');
         }
         if ($user->isOnlyTeacher()) {
             return $q->where('teacher_id', $user->id);

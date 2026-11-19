@@ -109,7 +109,8 @@ const initials = computed(() => (user.value?.name ?? '').split(' ').slice(0, 2).
             <div v-if="page.props.unofficialPolicies" class="border-b border-amber-200 bg-amber-50">
                 <div class="mx-auto flex max-w-7xl items-center gap-2 px-4 py-2 text-xs font-semibold text-amber-900 sm:px-6 lg:px-8">
                     <ExclamationTriangleIcon class="h-4 w-4 shrink-0" />
-                    بعض السياسات الأكاديمية مؤقتة وغير رسمية بانتظار النص المعتمد من الجامعة. النتائج المحسوبة بها تظهر بعلامة «غير رسمية».
+                    <span class="sm:hidden">سياسات مؤقتة غير رسمية</span>
+                    <span class="hidden sm:inline">بعض السياسات الأكاديمية مؤقتة وغير رسمية بانتظار النص المعتمد من الجامعة. النتائج المحسوبة بها تظهر بعلامة «غير رسمية».</span>
                     <Link :href="route('policies.index')" class="ms-auto shrink-0 underline underline-offset-2">التفاصيل</Link>
                 </div>
             </div>

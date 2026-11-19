@@ -16,13 +16,13 @@ const toneClass = {
 </script>
 
 <template>
-    <div class="card flex items-start gap-4 p-5">
-        <div v-if="icon" class="grid h-11 w-11 shrink-0 place-items-center rounded-xl" :class="toneClass[tone]">
-            <component :is="icon" class="h-6 w-6" />
+    <div class="card flex flex-col items-start gap-2 p-4 sm:flex-row sm:gap-4 sm:p-5">
+        <div v-if="icon" class="grid h-9 w-9 shrink-0 place-items-center rounded-xl sm:h-11 sm:w-11" :class="toneClass[tone]">
+            <component :is="icon" class="h-5 w-5 sm:h-6 sm:w-6" />
         </div>
         <div class="min-w-0">
-            <p class="text-sm font-medium text-slate-500">{{ label }}</p>
-            <p class="mt-0.5 text-2xl font-extrabold tabular-nums text-slate-900">{{ value }}</p>
+            <p class="text-xs font-medium text-slate-500 sm:text-sm">{{ label }}</p>
+            <p class="mt-0.5 text-xl font-extrabold sm:text-2xl tabular-nums text-slate-900">{{ value }}</p>
             <p v-if="hint" class="mt-0.5 text-xs text-slate-500">{{ hint }}</p>
         </div>
     </div>

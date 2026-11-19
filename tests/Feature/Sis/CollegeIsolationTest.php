@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Sis;
 
+use App\Models\AcademicYear;
 use App\Models\AdministrativeOrder;
 use App\Models\Student;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -60,7 +61,15 @@ class CollegeIsolationTest extends TestCase
         $program = $existing->currentProgram->program;
         $this->actingAs($this->admin)->post(route('students.store'), [
             'name_ar' => $existing->name_ar, 'mother_name_ar' => 'أم', 'birth_date' => $existing->birth_date->toDateString(), 'gender' => 'm',
-            'program_id' => $program->id, 'year_id' => \App\Models\AcademicYear::first()->id, 'stage' => 1,
+            'program_id' => $program->id, 'year_id' => AcademicYear::first()->id, 'stage' => 1,
         ])->assertSessionHas('error');
+    }
+
+    public function test_university_wide_staff_see_every_offering(): void
+    {
+        $registrar = $this->user('reg-all@t', 'registrar');
+        $this->actingAs($registrar)->get(route('offerings.index'))->assertInertia(fn ($p) => $p->has('offerings.data', 2));
+        $this->actingAs($this->admin)->get(route('offerings.index'))->assertInertia(fn ($p) => $p->has('offerings.data', 2));
+        $this->actingAs($this->teacherA)->get(route('offerings.index'))->assertInertia(fn ($p) => $p->has('offerings.data', 1));
     }
 }

@@ -46,13 +46,13 @@ const savePw = () => pw.put(route('password.update'), { preserveScroll: true, on
         <!-- identity -->
         <section class="card overflow-hidden">
             <div class="flex flex-wrap items-center gap-4 rtl:bg-gradient-to-l ltr:bg-gradient-to-r from-brand-50 to-white p-5 sm:p-6">
-                <div class="grid h-14 w-14 place-items-center rounded-2xl bg-brand-700 text-white"><AcademicCapIcon class="h-8 w-8" /></div>
-                <div class="min-w-0 flex-1">
-                    <h1 class="text-xl font-extrabold text-slate-900 sm:text-2xl">{{ student.name }}</h1>
+                <div class="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-brand-700 text-white sm:h-14 sm:w-14"><AcademicCapIcon class="h-7 w-7 sm:h-8 sm:w-8" /></div>
+                <div class="min-w-[12rem] flex-1">
+                    <h1 class="text-lg font-extrabold leading-snug text-slate-900 sm:text-2xl">{{ student.name }}</h1>
                     <p class="mt-1 text-sm text-slate-500">{{ student.college }} · {{ student.department }}</p>
                     <p class="text-sm text-slate-500">{{ student.program }} · المرحلة {{ student.stage }} · نظام {{ student.system }}</p>
                 </div>
-                <div class="text-end">
+                <div class="flex w-full items-center justify-between gap-3 border-t border-brand-100/70 pt-3 sm:block sm:w-auto sm:border-0 sm:pt-0 sm:text-end">
                     <p class="text-xs text-slate-400">الرقم الجامعي</p>
                     <p class="ltr font-mono text-lg font-extrabold text-brand-800">{{ student.number }}</p>
                     <Badge :map="studentStatus" :value="student.status" dot class="mt-1" />

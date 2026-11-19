@@ -62,7 +62,7 @@ const reset = () => Object.assign(f, { q: '', college: '', program: '', status: 
                 <select v-model="f.college" class="input" @change="f.program = ''"><option value="">كل الكليات</option><option v-for="c in colleges" :key="c.id" :value="c.id">{{ c.name_ar }}</option></select>
                 <select v-model="f.program" class="input"><option value="">كل البرامج</option><option v-for="p in programs" :key="p.id" :value="p.id">{{ p.name }}</option></select>
                 <select v-model="f.stage" class="input"><option value="">كل المراحل</option><option v-for="s in 6" :key="s" :value="s">المرحلة {{ s }}</option></select>
-                <select v-model="f.shift" class="input"><option value="">الصباحي والمسائي</option><option value="morning">صباحي</option><option value="evening">مسائي</option></select>
+                <select v-model="f.shift" class="input"><option value="">كل الدوامات</option><option value="morning">صباحي</option><option value="evening">مسائي</option></select>
                 <select v-model="f.status" class="input"><option value="">كل الحالات</option><option v-for="(l, k) in statuses" :key="k" :value="k">{{ l }}</option></select>
             </div>
 

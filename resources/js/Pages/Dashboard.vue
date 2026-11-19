@@ -46,7 +46,7 @@ const studentRows = computed(() => Object.entries(props.stats.byStudentStatus ??
             </div>
         </div>
 
-        <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div class="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
             <StatCard label="الطلبة المستمرون" :value="num(stats.active)" :hint="`من أصل ${num(stats.students)} طالب`" :icon="AcademicCapIcon" />
             <StatCard label="الشعب الدراسية" :value="num(stats.offerings)" hint="في العام الحالي" :icon="ClipboardDocumentCheckIcon" tone="violet" />
             <StatCard label="بانتظار اللجنة" :value="num(stats.byStatus.submitted ?? 0)" hint="شعب مرفوعة للمصادقة" :icon="InboxIcon" tone="amber" />

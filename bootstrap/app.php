@@ -2,8 +2,10 @@
 
 use App\Http\Middleware\EnsurePasswordChanged;
 use App\Http\Middleware\EnsureStaff;
+use App\Http\Middleware\EnsureTwoFactor;
 use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\SetLocale;
 use App\Services\WorkflowException;
 use Illuminate\Foundation\Application;
@@ -23,10 +25,11 @@ return Application::configure(basePath: dirname(__DIR__))
             SetLocale::class,
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
+            SecurityHeaders::class,
         ]);
 
         $middleware->trustProxies(at: '*');
-        $middleware->alias(['active' => EnsureUserIsActive::class, 'staff' => EnsureStaff::class, 'password.changed' => EnsurePasswordChanged::class]);
+        $middleware->alias(['active' => EnsureUserIsActive::class, 'staff' => EnsureStaff::class, 'password.changed' => EnsurePasswordChanged::class, 'two-factor' => EnsureTwoFactor::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // A business rule stopped the action: go back and show the reason, never a 500 page.

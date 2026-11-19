@@ -15,6 +15,7 @@ use App\Http\Controllers\PortalController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProgressionController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\SecurityController;
 use App\Http\Controllers\StructureAdminController;
 use App\Http\Controllers\StructureController;
 use App\Http\Controllers\StudentAccountController;
@@ -42,7 +43,7 @@ Route::post('/locale', function (Request $request) {
     return back();
 })->name('locale');
 
-Route::middleware(['auth', 'active', 'password.changed', 'staff'])->group(function () {
+Route::middleware(['auth', 'active', 'password.changed', 'two-factor', 'staff'])->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
 
     Route::get('/students', [StudentController::class, 'index'])->name('students.index');
@@ -151,11 +152,25 @@ Route::middleware(['auth', 'active', 'password.changed', 'staff'])->group(functi
 });
 
 // Shared by staff and students (each checks its own access).
-Route::middleware(['auth', 'active', 'password.changed'])->group(function () {
+Route::middleware(['auth', 'active', 'password.changed', 'two-factor'])->group(function () {
     Route::get('/portal', [PortalController::class, 'home'])->name('portal.home');
     Route::get('/students/{student}/transcript.pdf', [DocumentController::class, 'transcript'])->name('students.transcript');
     Route::get('/students/{student}/graduation.pdf', [DocumentController::class, 'graduation'])->name('students.graduation');
     Route::get('/finance/receipts/{payment}.pdf', [FinanceController::class, 'receipt'])->name('finance.receipt');
+});
+
+// The account's own security page (reachable before two-step sign-in is set up, so it can be set up).
+Route::middleware(['auth', 'active', 'password.changed'])->controller(SecurityController::class)->prefix('security')->name('security.')->group(function () {
+    Route::get('/', 'show')->name('show');
+    Route::post('/two-factor', 'begin')->name('two-factor.begin');
+    Route::post('/two-factor/confirm', 'confirm')->middleware('throttle:10,1')->name('two-factor.confirm');
+    Route::delete('/two-factor', 'disable')->middleware('throttle:10,1')->name('two-factor.disable');
+    Route::post('/recovery-codes', 'recoveryCodes')->middleware('throttle:10,1')->name('recovery-codes');
+    Route::delete('/sessions', 'endSessions')->middleware('throttle:10,1')->name('sessions.destroy');
+});
+Route::middleware(['auth', 'active', 'password.changed', 'two-factor', 'staff'])->group(function () {
+    Route::get('/security/logins', [SecurityController::class, 'logins'])->name('logins.index');
+    Route::delete('/users/{user}/two-factor', [SecurityController::class, 'reset'])->name('users.two-factor.reset');
 });
 
 Route::middleware(['auth', 'active'])->get('/password/first', [PortalController::class, 'password'])->name('password.first');

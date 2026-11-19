@@ -45,6 +45,8 @@ class UserController extends Controller
                     'scope' => $a->department?->name_ar ?? $a->college?->name_ar,
                 ])->values(),
                 'self' => $u->id === $request->user()->id,
+                'two_factor' => $u->hasTwoFactor(),
+                'last_login' => $u->last_login_at?->format('Y-m-d H:i'),
             ]);
 
         return Inertia::render('Users/Index', [

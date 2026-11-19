@@ -10,6 +10,7 @@ use App\Services\PolicyResolver;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Validation\Rules\Password;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -20,6 +21,8 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // no "uncompromised" check: the offline server has no internet
+        Password::defaults(fn () => Password::min(config('security.password_min', 10))->letters()->numbers());
         Vite::prefetch(concurrency: 3);
 
         // super_admin may do anything except enter marks for someone else's course.

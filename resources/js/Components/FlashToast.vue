@@ -19,6 +19,7 @@ watch(
     (f) => {
         if (f?.success) push('success', f.success, !f?.error && f.problems ? Object.values(f.problems) : null);
         if (f?.error) push('error', f.error, f.problems ? Object.values(f.problems) : null);
+        if (f?.warning) push('warning', f.warning);
     },
     { immediate: true, deep: true },
 );
@@ -36,9 +37,9 @@ watch(
         <TransitionGroup enter-from-class="-translate-y-3 opacity-0" leave-to-class="opacity-0" enter-active-class="transition duration-200" leave-active-class="transition duration-200">
             <div v-for="i in items" :key="i.id"
                 class="pointer-events-auto flex w-full max-w-lg items-start gap-3 rounded-2xl border px-4 py-3 shadow-lg"
-                :class="i.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-rose-200 bg-rose-50 text-rose-900'">
+                :class="{ success: 'border-emerald-200 bg-emerald-50 text-emerald-900', warning: 'border-amber-200 bg-amber-50 text-amber-900' }[i.type] ?? 'border-rose-200 bg-rose-50 text-rose-900'">
                 <CheckCircleIcon v-if="i.type === 'success'" class="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
-                <ExclamationTriangleIcon v-else class="mt-0.5 h-5 w-5 shrink-0 text-rose-600" />
+                <ExclamationTriangleIcon v-else class="mt-0.5 h-5 w-5 shrink-0" :class="i.type === 'warning' ? 'text-amber-600' : 'text-rose-600'" />
                 <div class="min-w-0 flex-1 text-sm font-semibold">
                     {{ i.text }}
                     <ul v-if="i.problems?.length" class="mt-1 list-inside list-disc text-xs font-normal">

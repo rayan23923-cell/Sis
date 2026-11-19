@@ -8,7 +8,7 @@ import Modal from '@/Components/Modal.vue';
 import Pagination from '@/Components/Pagination.vue';
 import EmptyState from '@/Components/EmptyState.vue';
 import InputError from '@/Components/InputError.vue';
-import { MagnifyingGlassIcon, PlusIcon, PencilSquareIcon, TrashIcon, UsersIcon, KeyIcon } from '@heroicons/vue/24/outline';
+import { MagnifyingGlassIcon, PlusIcon, PencilSquareIcon, KeyIcon, TrashIcon, UsersIcon } from '@heroicons/vue/24/outline';
 
 const props = defineProps({ users: Object, filters: Object, roles: Object, roleScope: Object, colleges: Array, departments: Array });
 const f = reactive({ q: props.filters.q ?? '', role: props.filters.role ?? '', status: props.filters.status ?? '' });
@@ -38,6 +38,7 @@ const save = () => {
     editing.value ? form.put(route('users.update', editing.value.id), opts) : form.post(route('users.store'), opts);
 };
 const roleErrors = computed(() => Object.entries(form.errors).filter(([k]) => k.startsWith('roles')).map(([, v]) => v));
+const reset2fa = (u) => confirm(`إعادة ضبط التحقق بخطوتين لحساب ${u.name}؟ سيُطلب منه الإعداد من جديد.`) && router.delete(route('users.two-factor.reset', u.id), { preserveScroll: true });
 </script>
 
 <template>
@@ -65,8 +66,10 @@ const roleErrors = computed(() => Object.entries(form.errors).filter(([k]) => k.
                                     <span v-if="!u.roles.length" class="text-xs text-amber-700">بدون دور (لا يرى شيئاً)</span>
                                 </div>
                             </td>
-                            <td><Badge :tone="u.active ? 'emerald' : 'slate'" dot>{{ u.active ? 'فعال' : 'معطل' }}</Badge></td>
-                            <td><button class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-brand-700" title="تعديل" @click="openEdit(u)"><PencilSquareIcon class="h-4 w-4" /></button></td>
+                            <td><Badge :tone="u.active ? 'emerald' : 'slate'" dot>{{ u.active ? 'فعال' : 'معطل' }}</Badge>
+                                <Badge v-if="u.two_factor" tone="sky" class="ms-1" title="التحقق بخطوتين مفعّل">2FA</Badge>
+                                <p v-if="u.last_login" class="mt-1 text-[11px] text-slate-400">آخر دخول <span class="ltr tabular-nums">{{ u.last_login }}</span></p></td>
+                            <td class="whitespace-nowrap"><button v-if="u.two_factor && !u.self" class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-amber-700" title="إعادة ضبط التحقق بخطوتين (فقدان الهاتف)" @click="reset2fa(u)"><KeyIcon class="h-4 w-4" /></button><button class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-brand-700" title="تعديل" @click="openEdit(u)"><PencilSquareIcon class="h-4 w-4" /></button></td>
                         </tr>
                     </tbody>
                 </table>

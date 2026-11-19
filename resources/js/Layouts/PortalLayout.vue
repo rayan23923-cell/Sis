@@ -20,6 +20,7 @@ const page = usePage();
                 </div>
                 <div class="ms-auto flex items-center gap-3 text-sm">
                     <span class="hidden text-brand-200 sm:inline">{{ page.props.auth.user?.name }}</span>
+                    <Link :href="route('security.show')" class="rounded-lg px-3 py-1.5 text-brand-200 hover:bg-white/10 hover:text-white">الأمان</Link>
                     <LocaleSwitch class="rounded-lg px-3 py-1.5 text-brand-200 hover:bg-white/10 hover:text-white" />
                     <Link :href="route('logout')" method="post" as="button" class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-brand-200 hover:bg-white/10 hover:text-white">
                         <ArrowRightOnRectangleIcon class="h-4 w-4" /> خروج

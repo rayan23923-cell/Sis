@@ -16,6 +16,9 @@ Route::middleware('guest')->group(function () {
 
     Route::post('login', [AuthenticatedSessionController::class, 'store']);
 
+    Route::get('two-factor', [AuthenticatedSessionController::class, 'challenge'])->name('two-factor.challenge');
+    Route::post('two-factor', [AuthenticatedSessionController::class, 'verify'])->middleware('throttle:10,1')->name('two-factor.verify');
+
     Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])
         ->name('password.request');
 

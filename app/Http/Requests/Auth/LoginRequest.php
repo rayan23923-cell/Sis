@@ -4,6 +4,7 @@ namespace App\Http\Requests\Auth;
 
 use App\Models\Student;
 use App\Models\User;
+use App\Services\Security\LoginLog;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -46,6 +47,7 @@ class LoginRequest extends FormRequest
 
         if (! Auth::attempt(['email' => $this->loginEmail(), 'password' => $this->string('password')->toString()], $this->boolean('remember'))) {
             RateLimiter::hit($this->throttleKey());
+            app(LoginLog::class)->record($this, 'failed', null, $this->string('email')->toString());
 
             throw ValidationException::withMessages([
                 'email' => trans('auth.failed'),
@@ -80,6 +82,7 @@ class LoginRequest extends FormRequest
         }
 
         event(new Lockout($this));
+        app(LoginLog::class)->record($this, 'lockout', null, $this->string('email')->toString());
 
         $seconds = RateLimiter::availableIn($this->throttleKey());
 

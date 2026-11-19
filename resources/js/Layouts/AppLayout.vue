@@ -6,7 +6,7 @@ import FlashToast from '@/Components/FlashToast.vue';
 import {
     AcademicCapIcon, BanknotesIcon, TableCellsIcon, ChartBarIcon, ArrowRightOnRectangleIcon, Bars3Icon, BookOpenIcon, BuildingLibraryIcon,
     ClipboardDocumentCheckIcon, DocumentTextIcon, ExclamationTriangleIcon, HomeIcon, ScaleIcon,
-    ShieldCheckIcon, UserCircleIcon, UsersIcon, XMarkIcon, ArrowTrendingUpIcon,
+    ShieldCheckIcon, UserCircleIcon, FingerPrintIcon, LockClosedIcon, UsersIcon, XMarkIcon, ArrowTrendingUpIcon,
 } from '@heroicons/vue/24/outline';
 
 defineProps({ title: { type: String, default: '' } });
@@ -33,6 +33,7 @@ const nav = computed(() => [
     { label: 'الأوامر الإدارية', route: 'orders.index', match: 'orders.*', icon: DocumentTextIcon, show: can.value.orders },
     { label: 'المستخدمون والأدوار', route: 'users.index', match: 'users.*', icon: UsersIcon, show: can.value.users },
     { label: 'سجل التدقيق', route: 'audit.index', match: 'audit.*', icon: ShieldCheckIcon, show: can.value.audit },
+    { label: 'سجل الدخول', route: 'logins.index', match: 'logins.*', icon: FingerPrintIcon, show: can.value.audit },
 ].filter((i) => i.section || i.show).filter((i, idx, arr) => !i.section || (arr[idx + 1] && !arr[idx + 1].section)));
 
 const active = (m) => [].concat(m).some((x) => route().current(x));
@@ -76,9 +77,12 @@ const initials = computed(() => (user.value?.name ?? '').split(' ').slice(0, 2).
                         <p class="truncate text-xs text-brand-300">{{ user.roles.join('، ') || 'بدون دور' }}</p>
                     </div>
                 </div>
-                <div class="mt-1 grid grid-cols-3 gap-1">
-                    <Link :href="route('profile.edit')" class="flex items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-semibold text-brand-200 hover:bg-white/5 hover:text-white">
+                <div class="mt-1 grid grid-cols-4 gap-1">
+                    <Link :href="route('profile.edit')" class="flex items-center justify-center gap-1 rounded-lg px-1 py-2 text-xs font-semibold text-brand-200 hover:bg-white/5 hover:text-white">
                         <UserCircleIcon class="h-4 w-4" /> حسابي
+                    </Link>
+                    <Link :href="route('security.show')" class="flex items-center justify-center gap-1 rounded-lg px-1 py-2 text-xs font-semibold hover:bg-white/5 hover:text-white" :class="route().current('security.*') ? 'text-white' : 'text-brand-200'">
+                        <LockClosedIcon class="h-4 w-4" /> الأمان
                     </Link>
                     <Link :href="route('logout')" method="post" as="button" class="flex items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-semibold text-brand-200 hover:bg-white/5 hover:text-white">
                         <ArrowRightOnRectangleIcon class="h-4 w-4" /> خروج

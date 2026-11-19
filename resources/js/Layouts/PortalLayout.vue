@@ -1,6 +1,7 @@
 <script setup>
 import { Head, Link, usePage } from '@inertiajs/vue3';
 import FlashToast from '@/Components/FlashToast.vue';
+import NotificationBell from '@/Components/NotificationBell.vue';
 import LocaleSwitch from '@/Components/LocaleSwitch.vue';
 import { ArrowRightOnRectangleIcon, BookOpenIcon } from '@heroicons/vue/24/outline';
 
@@ -20,6 +21,7 @@ const page = usePage();
                 </div>
                 <div class="ms-auto flex items-center gap-3 text-sm">
                     <span class="hidden text-brand-200 sm:inline">{{ page.props.auth.user?.name }}</span>
+                    <NotificationBell dark />
                     <Link :href="route('security.show')" class="rounded-lg px-3 py-1.5 text-brand-200 hover:bg-white/10 hover:text-white">الأمان</Link>
                     <LocaleSwitch class="rounded-lg px-3 py-1.5 text-brand-200 hover:bg-white/10 hover:text-white" />
                     <Link :href="route('logout')" method="post" as="button" class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-brand-200 hover:bg-white/10 hover:text-white">

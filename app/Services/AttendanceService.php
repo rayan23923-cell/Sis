@@ -11,6 +11,7 @@ use App\Models\Enrollment;
 use App\Models\Program;
 use App\Models\Student;
 use App\Models\User;
+use App\Notifications\Notice;
 use App\Support\AuditContext;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -58,7 +59,8 @@ class AttendanceService
             }
         }
 
-        return DB::transaction(function () use ($offering, $user, $data, $statuses, $session, $day, $period, $enrollments) {
+        $levels = $this->summary($offering)->map(fn ($r) => $r['level']);
+        $saved = DB::transaction(function () use ($offering, $user, $data, $statuses, $session, $day, $period, $enrollments) {
             $attrs = ['held_on' => $day->toDateString(), 'period' => $period, 'hours' => (float) $data['hours'], 'kind' => $data['kind'] ?? 'lecture', 'topic' => $data['topic'] ?? null];
             if ($session) {
                 $session->update($attrs);
@@ -91,6 +93,28 @@ class AttendanceService
 
             return $session;
         });
+        $this->warnStudents($offering, $levels);
+
+        return $saved;
+    }
+
+    /** Tells each student whose absence has just reached a new warning level (تنبيه، إنذار). */
+    private function warnStudents(CourseOffering $offering, Collection $before): void
+    {
+        $after = $this->summary($offering);
+        $raised = $after->filter(fn ($r, $id) => $r['level'] > ($before[$id] ?? 0));
+        if ($raised->isEmpty()) {
+            return;
+        }
+        $offering->loadMissing('course');
+        $users = Enrollment::whereIn('id', $raised->keys())->with('student.user')->get()->keyBy('id');
+        foreach ($raised as $id => $r) {
+            $u = $users[$id]?->student?->user;
+            if ($u) {
+                app(Notifier::class)->send($u, new Notice(
+                    ($r['warning'] ?? 'تنبيه').' غياب', 'نسبة غيابك في '.$offering->course->name_ar.' بلغت '.$r['percent'].'%.', route('portal.home'), $r['level'] > 1 ? 'danger' : 'warning'));
+            }
+        }
     }
 
     public function delete(AttendanceSession $session): void

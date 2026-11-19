@@ -14,7 +14,9 @@ use App\Models\AssessmentMark;
 use App\Models\CourseOffering;
 use App\Models\Enrollment;
 use App\Models\FinalResult;
+use App\Models\Student;
 use App\Models\User;
+use App\Notifications\Notice;
 use App\Support\AuditContext;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -188,6 +190,15 @@ class GradebookService
             }
             $offering->update(['status' => 'locked']);
         }));
+        $this->announce($offering);
+    }
+
+    /** The students of a locked course see their result in the portal: tell them. */
+    private function announce(CourseOffering $offering): void
+    {
+        $offering->loadMissing('course');
+        $users = User::whereIn('id', Student::whereIn('id', $offering->enrollments()->select('student_id'))->whereNotNull('user_id')->select('user_id'))->get();
+        app(Notifier::class)->send($users, new Notice('أُعلنت نتيجة', $offering->course->name_ar.' — الدور '.$offering->current_round.'. افتح البوابة لمعرفة درجتك.', route('portal.home'), 'success'));
     }
 
     public function canOpenNextRound(CourseOffering $offering): bool

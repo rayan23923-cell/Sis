@@ -12,7 +12,7 @@ class IssuedDocument extends Model
 {
     use Audited;
 
-    public const TYPES = ['transcript' => 'كشف درجات', 'graduation' => 'وثيقة تخرج'];
+    public const TYPES = ['transcript' => 'كشف درجات', 'graduation' => 'وثيقة تخرج', 'enrollment' => 'تأييد استمرار بالدراسة'];
 
     protected $fillable = ['code', 'type', 'student_id', 'snapshot', 'content_hash', 'official', 'issued_by', 'revoked_at', 'revoked_by', 'revoke_reason'];
 

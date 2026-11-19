@@ -4,16 +4,15 @@ namespace App\Http\Controllers;
 
 use App\Models\AcademicYear;
 use App\Models\CourseOffering;
-use App\Models\IssuedDocument;
 use App\Models\Program;
 use App\Models\ProgressionDecision;
 use App\Models\Student;
+use App\Services\Documents\DocumentIssuer;
 use App\Services\Documents\Pdf;
 use App\Services\Documents\TranscriptService;
 use App\Services\GradebookService;
 use App\Services\PolicyResolver;
 use App\Services\ProgressionService;
-use App\Services\WorkflowException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Symfony\Component\HttpFoundation\Response;
@@ -23,23 +22,26 @@ class DocumentController extends Controller
 {
     public function __construct(private readonly Pdf $pdf) {}
 
-    public function transcript(Request $request, Student $student, TranscriptService $transcripts): Response
+    public function transcript(Request $request, Student $student, DocumentIssuer $issuer): Response
     {
-        $user = $request->user();
-        $own = $student->user_id !== null && $student->user_id === $user->id;
-        if (! $own) {
-            Gate::authorize('view-students');
-            abort_unless(Student::visibleTo($user)->whereKey($student->id)->exists(), 403);
-        }
-        $data = $transcripts->build($student);
-        $doc = $this->issue('transcript', $student, $data, $request);
-
-        return $this->pdf->response('pdf.transcript', $data + ['doc' => $doc] + $this->base($request, 'كشف الدرجات', $data['program']?->department->college->name_ar, $doc->code),
-            'transcript-'.$student->university_number.'.pdf');
+        return $this->direct('transcript', $request, $student, $issuer);
     }
 
     /** Graduation document: only for a student whose graduation was recorded by an order. */
-    public function graduation(Request $request, Student $student, TranscriptService $transcripts): Response
+    public function graduation(Request $request, Student $student, DocumentIssuer $issuer): Response
+    {
+        return $this->direct('graduation', $request, $student, $issuer);
+    }
+
+    /** تأييد استمرار بالدراسة: printed by the registrar (students ask for it through a request). */
+    public function enrollment(Request $request, Student $student, DocumentIssuer $issuer): Response
+    {
+        Gate::authorize('view-students');
+
+        return $this->direct('enrollment', $request, $student, $issuer, $request->validate(['addressed_to' => ['nullable', 'string', 'max:150']]));
+    }
+
+    private function direct(string $type, Request $request, Student $student, DocumentIssuer $issuer, array $extra = []): Response
     {
         $user = $request->user();
         $own = $student->user_id !== null && $student->user_id === $user->id;
@@ -47,31 +49,9 @@ class DocumentController extends Controller
             Gate::authorize('view-students');
             abort_unless(Student::visibleTo($user)->whereKey($student->id)->exists(), 403);
         }
-        if ($student->status !== 'graduated') {
-            throw new WorkflowException('وثيقة التخرج تصدر للطالب المتخرج فقط.');
-        }
-        $data = $transcripts->build($student);
-        $change = $student->statusChanges()->where('to_status', 'graduated')->latest('effective_on')->with('order')->first();
-        $data['graduated_on'] = $change?->effective_on?->toDateString();
-        $data['graduation_order'] = $change?->order?->reference();
-        $doc = $this->issue('graduation', $student, $data, $request);
+        $out = $issuer->issue($type, $student, $user, $extra);
 
-        return $this->pdf->response('pdf.graduation', $data + ['doc' => $doc] + $this->base($request, 'وثيقة تخرج', $data['program']?->department->college->name_ar, $doc->code),
-            'graduation-'.$student->university_number.'.pdf');
-    }
-
-    /** Records the printed document so its QR code can be verified later. */
-    private function issue(string $type, Student $student, array $data, Request $request): IssuedDocument
-    {
-        $snapshot = [
-            'name' => $student->name_ar, 'name_en' => $student->name_en, 'number' => $student->university_number,
-            'college' => $data['program']?->department->college->name_ar, 'department' => $data['program']?->department->name_ar,
-            'program' => $data['program']?->name_ar, 'status' => $data['status'],
-            'years' => collect($data['years'])->map(fn ($y) => ['year' => $y['name'], 'gpa' => $y['gpa'], 'credits' => $y['credits'], 'decision' => $y['decision'], 'courses' => count($y['rows'])])->all(),
-            'graduated_on' => $data['graduated_on'] ?? null,
-        ];
-
-        return IssuedDocument::create(['type' => $type, 'student_id' => $student->id, 'snapshot' => $snapshot, 'official' => $data['official'], 'issued_by' => $request->user()->id]);
+        return response($out['pdf'], 200, ['Content-Type' => 'application/pdf', 'Content-Disposition' => 'inline; filename="'.$out['filename'].'"', 'Cache-Control' => 'private, no-store']);
     }
 
     public function gradeSheet(Request $request, CourseOffering $offering, GradebookService $gradebook): Response

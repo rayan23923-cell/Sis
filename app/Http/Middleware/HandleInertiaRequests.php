@@ -3,7 +3,9 @@
 namespace App\Http\Middleware;
 
 use App\Models\AcademicPolicy;
+use App\Models\DocumentRequest;
 use App\Models\RoleAssignment;
+use App\Models\Student;
 use App\Support\Translations;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -57,12 +59,16 @@ class HandleInertiaRequests extends Middleware
                 'managePolicies' => Gate::allows('manage-policies'),
                 'orders' => Gate::allows('issue-orders'),
                 'audit' => Gate::allows('view-audit'),
+                'requests' => Gate::allows('handle-document-requests'),
                 'users' => Gate::allows('manage-users'),
                 'progression' => Gate::allows('view-progression'),
                 'reports' => Gate::allows('view-reports'),
                 'finance' => Gate::allows('view-finance'),
                 'offerings' => Gate::allows('manage-offerings'),
             ] : [],
+            'unread' => fn () => $user ? $user->unreadNotifications()->count() : 0,
+            'pendingRequests' => fn () => $user && Gate::allows('handle-document-requests')
+                ? DocumentRequest::where('status', 'submitted')->whereIn('student_id', Student::visibleTo($user)->select('students.id'))->count() : 0,
             'unofficialPolicies' => fn () => $user ? AcademicPolicy::where('status', 'approved')->where('is_official', false)->exists() : false,
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),

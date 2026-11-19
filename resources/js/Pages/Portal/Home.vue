@@ -1,19 +1,23 @@
 <script setup>
 import { computed, ref } from 'vue';
-import { useForm } from '@inertiajs/vue3';
+import { router, useForm } from '@inertiajs/vue3';
 import PortalLayout from '@/Layouts/PortalLayout.vue';
 import Badge from '@/Components/Badge.vue';
 import EmptyState from '@/Components/EmptyState.vue';
 import InputError from '@/Components/InputError.vue';
 import WeekGrid from '@/Components/WeekGrid.vue';
 import { outcome, studentStatus } from '@/lib/labels';
-import { AcademicCapIcon, ArrowDownTrayIcon, BanknotesIcon, PrinterIcon, BookOpenIcon, ChartBarIcon, ClockIcon, ExclamationTriangleIcon, KeyIcon, CalendarDaysIcon } from '@heroicons/vue/24/outline';
+import { AcademicCapIcon, ArrowDownTrayIcon, BanknotesIcon, PrinterIcon, BookOpenIcon, ChartBarIcon, ClockIcon, ExclamationTriangleIcon, KeyIcon, CalendarDaysIcon, DocumentTextIcon } from '@heroicons/vue/24/outline';
 
-const props = defineProps({ student: Object, current: Array, years: Array, official: Boolean, history: Array, fees: { type: Array, default: () => [] }, timetable: { type: Array, default: () => [] }, days: Object });
+const props = defineProps({ student: Object, current: Array, years: Array, official: Boolean, history: Array, fees: { type: Array, default: () => [] }, timetable: { type: Array, default: () => [] }, days: Object, requests: { type: Array, default: () => [] }, requestTypes: { type: Object, default: () => ({}) } });
 const money = (n) => Number(n ?? 0).toLocaleString('en-US');
 const lineTone = { paid: 'emerald', partial: 'sky', due: 'slate', overdue: 'rose' };
 const lineLabel = { paid: 'مسدد', partial: 'مسدد جزئياً', due: 'مستحق', overdue: 'متأخر' };
-const tab = ref('current');
+const tab = ref(new URLSearchParams(window.location.search).get('tab') || 'current');
+const req = useForm({ type: 'transcript', addressed_to: '', purpose: '', notes: '' });
+const sendReq = () => req.post(route('portal.requests.store'), { preserveScroll: true, onSuccess: () => req.reset() });
+const cancelReq = (r) => confirm('إلغاء الطلب؟') && router.post(route('portal.requests.cancel', r.id), {}, { preserveScroll: true });
+const reqTone = { submitted: 'amber', ready: 'emerald', delivered: 'slate', rejected: 'rose', cancelled: 'slate' };
 const lastGpa = computed(() => props.years.find((y) => y.gpa !== null)?.gpa ?? null);
 const totalCredits = computed(() => props.years.reduce((s, y) => s + y.credits, 0));
 const announced = computed(() => props.current.filter((c) => c.result).length);
@@ -52,9 +56,9 @@ const savePw = () => pw.put(route('password.update'), { preserveScroll: true, on
         </div>
 
         <div class="mt-6 flex flex-wrap items-center gap-2">
-            <div class="flex gap-1 rounded-xl bg-slate-100 p-1 text-sm font-semibold">
-                <button v-for="[k, l, icon] in [['current', 'مواد هذا العام', BookOpenIcon], ['timetable', 'جدولي', CalendarDaysIcon], ['results', 'النتائج السابقة', ChartBarIcon], ['fees', 'الرسوم', BanknotesIcon], ['history', 'السجل', ClockIcon], ['account', 'الحساب', KeyIcon]]" :key="k"
-                    class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition" :class="tab === k ? 'bg-white text-brand-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'" @click="tab = k">
+            <div class="flex max-w-full gap-1 overflow-x-auto rounded-xl bg-slate-100 p-1 text-sm font-semibold">
+                <button v-for="[k, l, icon] in [['current', 'مواد هذا العام', BookOpenIcon], ['timetable', 'جدولي', CalendarDaysIcon], ['requests', 'طلباتي', DocumentTextIcon], ['results', 'النتائج السابقة', ChartBarIcon], ['fees', 'الرسوم', BanknotesIcon], ['history', 'السجل', ClockIcon], ['account', 'الحساب', KeyIcon]]" :key="k"
+                    class="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 transition" :class="tab === k ? 'bg-white text-brand-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'" @click="tab = k">
                     <component :is="icon" class="h-4 w-4" /> {{ l }}
                 </button>
             </div>
@@ -138,6 +142,35 @@ const savePw = () => pw.put(route('password.update'), { preserveScroll: true, on
                 <WeekGrid :slots="timetable" :days="days" />
             </template>
         </section>
+
+        <div v-if="tab === 'requests'" class="mt-4 grid gap-4 lg:grid-cols-5">
+            <form class="card h-fit p-5 lg:col-span-2" @submit.prevent="sendReq">
+                <h3 class="font-extrabold text-slate-800">طلب وثيقة</h3>
+                <p class="mt-1 text-xs text-slate-500">تصدر الوثيقة برمز QR للتحقق، وتنزّلها من هنا عند جاهزيتها.</p>
+                <div class="mt-4 space-y-3">
+                    <div><label class="label">نوع الوثيقة</label><select v-model="req.type" class="input"><option v-for="(l, k) in requestTypes" :key="k" :value="k">{{ l }}</option></select><InputError :message="req.errors.type" class="mt-1" /></div>
+                    <div><label class="label">الجهة المعنون إليها</label><input v-model="req.addressed_to" class="input" placeholder="مثال: مديرية التقاعد العامة" /></div>
+                    <div><label class="label">الغرض</label><input v-model="req.purpose" class="input" placeholder="اختياري" /></div>
+                    <div><label class="label">ملاحظات</label><textarea v-model="req.notes" rows="2" class="input" /></div>
+                </div>
+                <button class="btn-primary mt-4 w-full" :disabled="req.processing">إرسال الطلب</button>
+            </form>
+            <section class="card lg:col-span-3">
+                <EmptyState v-if="!requests.length" :icon="DocumentTextIcon" title="لا توجد طلبات" />
+                <ul v-else class="divide-y divide-slate-100">
+                    <li v-for="r in requests" :key="r.id" class="flex flex-wrap items-center gap-3 px-5 py-4">
+                        <div class="min-w-0 flex-1">
+                            <p class="font-bold text-slate-800">{{ r.type }}</p>
+                            <p class="text-xs text-slate-400"><span class="ltr tabular-nums">{{ r.at }}</span><template v-if="r.addressed_to"> · إلى {{ r.addressed_to }}</template></p>
+                            <p v-if="r.response" class="mt-1 text-xs" :class="r.status === 'rejected' ? 'text-rose-600' : 'text-slate-500'">{{ r.response }}</p>
+                        </div>
+                        <Badge :tone="reqTone[r.status]">{{ r.status_label }}</Badge>
+                        <a v-if="r.file" :href="r.file" class="btn-secondary"><ArrowDownTrayIcon class="h-4 w-4" /> تنزيل</a>
+                        <button v-if="r.status === 'submitted'" type="button" class="text-xs font-semibold text-slate-500 hover:text-rose-600" @click="cancelReq(r)">إلغاء</button>
+                    </li>
+                </ul>
+            </section>
+        </div>
 
         <!-- status history -->
         <section v-if="tab === 'history'" class="card mt-4">

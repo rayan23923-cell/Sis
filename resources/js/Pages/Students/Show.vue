@@ -63,6 +63,7 @@ const passedCount = computed(() => props.courses.filter((c) => c.result?.status 
             </template>
             <a v-if="student.status === 'graduated'" :href="route('students.graduation', student.id)" target="_blank" class="btn-secondary"><PrinterIcon class="h-4 w-4" /> وثيقة التخرج PDF</a>
             <a :href="route('students.transcript', student.id)" target="_blank" class="btn-secondary"><PrinterIcon class="h-4 w-4" /> كشف الدرجات PDF</a>
+            <a v-if="student.status === 'active'" :href="route('students.enrollment', student.id)" target="_blank" class="btn-secondary"><PrinterIcon class="h-4 w-4" /> تأييد استمرار</a>
             <Link v-if="$page.props.can.finance" :href="route('finance.student', student.id)" class="btn-secondary"><BanknotesIcon class="h-4 w-4" /> الرسوم</Link>
             <button v-if="transitions.length" class="btn-primary" @click="openStatus('')"><ArrowPathIcon class="h-4 w-4" /> تغيير الحالة</button>
         </PageHeader>

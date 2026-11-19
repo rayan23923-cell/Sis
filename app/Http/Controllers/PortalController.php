@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\DocumentRequest;
 use App\Models\Enrollment;
 use App\Models\Student;
 use App\Models\StudentInvoice;
@@ -60,6 +61,12 @@ class PortalController extends Controller
                 ]),
             'timetable' => app(TimetableService::class)->present(app(TimetableService::class)->forStudent($student, TimetableService::currentTerms()->pluck('id')->all())),
             'days' => TimetableSlot::DAYS,
+            'requests' => DocumentRequest::where('student_id', $student->id)->latest()->limit(20)->get()->map(fn (DocumentRequest $r) => [
+                'id' => $r->id, 'type' => DocumentRequest::TYPES[$r->type], 'status' => $r->status, 'status_label' => DocumentRequest::STATUSES[$r->status],
+                'addressed_to' => $r->addressed_to, 'response' => $r->response, 'at' => $r->created_at->timezone('Asia/Baghdad')->format('Y-m-d'),
+                'file' => in_array($r->status, ['ready', 'delivered'], true) && $r->file_path ? route('requests.file', $r) : null,
+            ]),
+            'requestTypes' => collect(DocumentRequest::TYPES)->only(array_filter(['transcript', $student->status === 'active' ? 'enrollment' : null, $student->status === 'graduated' ? 'graduation' : null])),
             'history' => $student->statusChanges->map(fn ($c) => [
                 'to' => Student::STATUSES[$c->to_status] ?? $c->to_status, 'on' => $c->effective_on?->toDateString(), 'order' => $c->order?->reference(), 'notes' => $c->notes,
             ]),

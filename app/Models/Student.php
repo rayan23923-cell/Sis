@@ -42,6 +42,11 @@ class Student extends Model
         return $this->hasMany(StudentProgram::class)->orderByDesc('id');
     }
 
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
     public function currentProgram(): HasOne
     {
         return $this->hasOne(StudentProgram::class)->where('is_current', true)->latestOfMany();

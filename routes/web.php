@@ -4,9 +4,11 @@ use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\AuditController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentController;
+use App\Http\Controllers\DocumentRequestController;
 use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\ImportController;
 use App\Http\Controllers\MasterSheetController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OfferingAdminController;
 use App\Http\Controllers\OfferingController;
 use App\Http\Controllers\OrderController;
@@ -148,6 +150,13 @@ Route::middleware(['auth', 'active', 'password.changed', 'two-factor', 'staff'])
     Route::post('/documents/{document}/revoke', [VerifyController::class, 'revoke'])->name('documents.revoke');
     Route::post('/student-accounts', [StudentAccountController::class, 'bulk'])->name('students.accounts.bulk');
 
+    Route::controller(DocumentRequestController::class)->prefix('requests')->name('requests.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::post('/{documentRequest}/issue', 'issue')->name('issue');
+        Route::post('/{documentRequest}/reject', 'reject')->name('reject');
+        Route::post('/{documentRequest}/deliver', 'deliver')->name('deliver');
+    });
+
     Route::controller(TimetableController::class)->group(function () {
         Route::get('/timetable', 'index')->name('timetable.index');
         Route::get('/timetable/pdf', 'pdf')->name('timetable.pdf');
@@ -168,8 +177,15 @@ Route::middleware(['auth', 'active', 'password.changed', 'two-factor'])->group(f
     Route::get('/portal', [PortalController::class, 'home'])->name('portal.home');
     Route::get('/students/{student}/transcript.pdf', [DocumentController::class, 'transcript'])->name('students.transcript');
     Route::get('/students/{student}/graduation.pdf', [DocumentController::class, 'graduation'])->name('students.graduation');
+    Route::get('/students/{student}/enrollment.pdf', [DocumentController::class, 'enrollment'])->name('students.enrollment');
     Route::get('/finance/receipts/{payment}.pdf', [FinanceController::class, 'receipt'])->name('finance.receipt');
     Route::get('/my-timetable.pdf', [TimetableController::class, 'mine'])->name('timetable.mine');
+    Route::post('/portal/requests', [DocumentRequestController::class, 'store'])->middleware('throttle:10,1')->name('portal.requests.store');
+    Route::post('/portal/requests/{documentRequest}/cancel', [DocumentRequestController::class, 'cancel'])->name('portal.requests.cancel');
+    Route::get('/requests/{documentRequest}/file', [DocumentRequestController::class, 'file'])->name('requests.file');
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::get('/notifications/{id}', [NotificationController::class, 'open'])->name('notifications.open');
+    Route::post('/notifications/read', [NotificationController::class, 'readAll'])->name('notifications.read');
 });
 
 // The account's own security page (reachable before two-step sign-in is set up, so it can be set up).

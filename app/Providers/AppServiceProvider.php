@@ -32,6 +32,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('manage-policies', fn (User $u) => $u->hasRole('rules_admin'));
         Gate::define('view-audit', fn (User $u) => $u->hasRole('auditor', 'registrar'));
         Gate::define('manage-users', fn (User $u) => false);
+        Gate::define('manage-connectors', fn (User $u) => false); // the system admin only (Gate::before)
 
         Gate::define('view-students', fn (User $u) => $u->hasRole('registrar', 'college_registrar', 'dean', 'head', 'committee', 'auditor'));
         Gate::define('admit-students', fn (User $u) => $u->hasRole('registrar', 'college_registrar'));

@@ -7,7 +7,7 @@ import NotificationBell from '@/Components/NotificationBell.vue';
 import {
     AcademicCapIcon, BanknotesIcon, TableCellsIcon, ChartBarIcon, ArrowRightOnRectangleIcon, Bars3Icon, BookOpenIcon, BuildingLibraryIcon,
     ClipboardDocumentCheckIcon, DocumentTextIcon, ExclamationTriangleIcon, HomeIcon, ScaleIcon,
-    ShieldCheckIcon, UserCircleIcon, CalendarDaysIcon, InboxArrowDownIcon, FingerPrintIcon, LockClosedIcon, UsersIcon, XMarkIcon, ArrowTrendingUpIcon, StarIcon,
+    ShieldCheckIcon, UserCircleIcon, CalendarDaysIcon, InboxArrowDownIcon, FingerPrintIcon, LockClosedIcon, UsersIcon, XMarkIcon, ArrowTrendingUpIcon, StarIcon, PuzzlePieceIcon,
 } from '@heroicons/vue/24/outline';
 
 defineProps({ title: { type: String, default: '' } });
@@ -36,6 +36,7 @@ const nav = computed(() => [
     { label: 'طلبات الوثائق', route: 'requests.index', match: 'requests.*', icon: InboxArrowDownIcon, show: can.value.requests, badge: page.props.pendingRequests },
     { label: 'الأوامر الإدارية', route: 'orders.index', match: 'orders.*', icon: DocumentTextIcon, show: can.value.orders },
     { label: 'المستخدمون والأدوار', route: 'users.index', match: 'users.*', icon: UsersIcon, show: can.value.users },
+    { label: 'الموصلات', route: 'connectors.index', match: 'connectors.*', icon: PuzzlePieceIcon, show: can.value.connectors },
     { label: 'سجل التدقيق', route: 'audit.index', match: 'audit.*', icon: ShieldCheckIcon, show: can.value.audit },
     { label: 'سجل الدخول', route: 'logins.index', match: 'logins.*', icon: FingerPrintIcon, show: can.value.audit },
 ].filter((i) => i.section || i.show).filter((i, idx, arr) => !i.section || (arr[idx + 1] && !arr[idx + 1].section)));

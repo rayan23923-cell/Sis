@@ -166,7 +166,44 @@ class OfferingController extends Controller
             'statuses' => CourseOffering::STATUSES,
             'attendance' => app(AttendanceService::class)->summary($offering)->map(fn ($a) => ['percent' => $a['percent'], 'level' => $a['level'], 'warning' => $a['warning'], 'over_limit' => $a['over_limit']]),
             'hasAttendance' => $offering->attendanceSessions()->exists(),
+            'incoming' => $this->incoming($offering, $isTeacher),
         ]);
+    }
+
+    /** Marks the exams system sent for this offering, waiting for the teacher (see ExamMarksInbox). */
+    private function incoming(CourseOffering $offering, bool $isTeacher): array
+    {
+        if (! \App\Models\Connector::active('exams')) {
+            return [];
+        }
+
+        return \App\Models\ConnectorMarkBatch::where('course_offering_id', $offering->id)->where('status', 'pending')
+            ->with('component:id,name_ar,max_mark')->latest('id')->get()
+            ->map(fn ($b) => [
+                'id' => $b->id, 'component' => $b->component->name_ar, 'max' => (float) $b->component->max_mark, 'round' => $b->exam_round,
+                'count' => count($b->rows), 'unknown' => $b->unknown ?? [], 'at' => $b->created_at->timezone('Asia/Baghdad')->format('Y-m-d H:i'),
+                'rows' => collect($b->rows)->values()->take(500),
+                'can_review' => $isTeacher && $offering->status === 'open' && $b->exam_round === $offering->current_round,
+            ])->all();
+    }
+
+    public function applyIncoming(Request $request, CourseOffering $offering, \App\Models\ConnectorMarkBatch $batch): RedirectResponse
+    {
+        Gate::authorize('enter-marks', $offering);
+        abort_unless($batch->course_offering_id === $offering->id, 404);
+        $saved = app(\App\Integrations\Connectors\ExamMarksInbox::class)->apply($batch, $request->user());
+
+        return back()->with('success', "أُدخلت {$saved} درجة من نظام الامتحانات. راجعها ثم اضغط «حفظ واحتساب».");
+    }
+
+    public function rejectIncoming(Request $request, CourseOffering $offering, \App\Models\ConnectorMarkBatch $batch): RedirectResponse
+    {
+        Gate::authorize('enter-marks', $offering);
+        abort_unless($batch->course_offering_id === $offering->id, 404);
+        $note = $request->validate(['note' => ['nullable', 'string', 'max:300']])['note'] ?? null;
+        app(\App\Integrations\Connectors\ExamMarksInbox::class)->reject($batch, $request->user(), $note);
+
+        return back()->with('success', 'رُفضت الدرجات الواردة.');
     }
 
     public function saveMarks(Request $request, CourseOffering $offering): RedirectResponse

@@ -172,6 +172,7 @@ class StudentController extends Controller
                     'official' => $e->currentResult->isOfficial(),
                 ] : null,
             ]),
+            'library' => \App\Models\LibraryStatus::summaryFor($student->id),
             'statuses' => Student::STATUSES,
             'transitions' => Gate::allows('change-student-status', $student) ? $transitions : [],
             'orders' => Gate::allows('change-student-status', $student)

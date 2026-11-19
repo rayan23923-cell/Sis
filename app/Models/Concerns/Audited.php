@@ -27,7 +27,7 @@ trait Audited
 
     protected static function writeAudit($model, string $action, ?array $old, ?array $new): void
     {
-        $hidden = ['password', 'remember_token', 'created_at', 'updated_at', 'two_factor_secret', 'two_factor_recovery_codes', 'last_login_at', 'last_login_ip', 'display', 'redirect_url', 'checked_at'];
+        $hidden = ['password', 'remember_token', 'created_at', 'updated_at', 'two_factor_secret', 'two_factor_recovery_codes', 'last_login_at', 'last_login_ip', 'display', 'redirect_url', 'checked_at', 'outgoing_token', 'incoming_token_hash', 'last_seen_at'];
         $clean = fn (?array $a) => $a === null ? null : array_diff_key($a, array_flip($hidden));
 
         AuditLog::create([

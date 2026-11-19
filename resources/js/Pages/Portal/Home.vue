@@ -7,9 +7,9 @@ import EmptyState from '@/Components/EmptyState.vue';
 import InputError from '@/Components/InputError.vue';
 import WeekGrid from '@/Components/WeekGrid.vue';
 import { outcome, studentStatus } from '@/lib/labels';
-import { AcademicCapIcon, ArrowDownTrayIcon, BanknotesIcon, PrinterIcon, BookOpenIcon, ChartBarIcon, ClockIcon, ExclamationTriangleIcon, KeyIcon, CalendarDaysIcon, DocumentTextIcon, CreditCardIcon, LockClosedIcon } from '@heroicons/vue/24/outline';
+import { AcademicCapIcon, ArrowDownTrayIcon, BanknotesIcon, PrinterIcon, BookOpenIcon, ChartBarIcon, ClockIcon, ExclamationTriangleIcon, KeyIcon, CalendarDaysIcon, DocumentTextIcon, CreditCardIcon, LockClosedIcon, StarIcon, ShieldCheckIcon } from '@heroicons/vue/24/outline';
 
-const props = defineProps({ student: Object, current: Array, years: Array, official: Boolean, history: Array, fees: { type: Array, default: () => [] }, timetable: { type: Array, default: () => [] }, days: Object, requests: { type: Array, default: () => [] }, requestTypes: { type: Object, default: () => ({}) }, gateways: { type: Object, default: () => ({}) }, minimumOnline: { type: Number, default: 1000 } });
+const props = defineProps({ student: Object, current: Array, years: Array, official: Boolean, history: Array, fees: { type: Array, default: () => [] }, timetable: { type: Array, default: () => [] }, days: Object, requests: { type: Array, default: () => [] }, requestTypes: { type: Object, default: () => ({}) }, gateways: { type: Object, default: () => ({}) }, minimumOnline: { type: Number, default: 1000 }, evaluations: { type: Array, default: () => [] } });
 const money = (n) => Number(n ?? 0).toLocaleString('en-US');
 const lineTone = { paid: 'emerald', partial: 'sky', due: 'slate', overdue: 'rose' };
 const lineLabel = { paid: 'مسدد', partial: 'مسدد جزئياً', due: 'مستحق', overdue: 'متأخر' };
@@ -21,6 +21,14 @@ const reqTone = { submitted: 'amber', ready: 'emerald', delivered: 'slate', reje
 const lastGpa = computed(() => props.years.find((y) => y.gpa !== null)?.gpa ?? null);
 const totalCredits = computed(() => props.years.reduce((s, y) => s + y.credits, 0));
 const announced = computed(() => props.current.filter((c) => c.result).length);
+
+// course evaluation (anonymous)
+const evalOpen = ref(null);
+const ev = useForm({ round: null, offering: null, answers: {} });
+const startEval = (e) => { evalOpen.value = `${e.round}-${e.offering}`; ev.round = e.round; ev.offering = e.offering; ev.answers = {}; };
+const evalReady = (e) => e.questions.every((q, i) => q.kind !== 'scale' || ev.answers[i]);
+const sendEval = () => ev.post(route('portal.evaluations.submit'), { preserveScroll: true, onSuccess: () => { evalOpen.value = null; } });
+const scaleLabels = ['ضعيف جداً', 'ضعيف', 'مقبول', 'جيد', 'ممتاز'];
 
 // online payment
 const payFor = ref(null);
@@ -62,9 +70,15 @@ const savePw = () => pw.put(route('password.update'), { preserveScroll: true, on
             <ExclamationTriangleIcon class="mt-0.5 h-5 w-5 shrink-0" /> بعض النتائج محسوبة بسياسات مؤقتة غير رسمية، ولا يُعتدّ بها رسمياً حتى اعتماد الأنظمة.
         </div>
 
+        <button v-if="evaluations.length && tab !== 'evaluate'" class="mt-4 flex w-full items-center gap-3 rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-start text-sm text-brand-900 transition hover:bg-brand-100" @click="tab = 'evaluate'">
+            <StarIcon class="h-5 w-5 shrink-0 text-brand-600" />
+            <span class="flex-1"><b>{{ evaluations.length }}</b> من موادك بانتظار تقييمك. رأيك يساعد في تحسين التدريس، ولا يظهر اسمك لأحد.</span>
+            <span class="font-bold">قيّم الآن</span>
+        </button>
+
         <div class="mt-6 flex flex-wrap items-center gap-2">
             <div class="flex max-w-full gap-1 overflow-x-auto rounded-xl bg-slate-100 p-1 text-sm font-semibold">
-                <button v-for="[k, l, icon] in [['current', 'مواد هذا العام', BookOpenIcon], ['timetable', 'جدولي', CalendarDaysIcon], ['requests', 'طلباتي', DocumentTextIcon], ['results', 'النتائج السابقة', ChartBarIcon], ['fees', 'الرسوم', BanknotesIcon], ['history', 'السجل', ClockIcon], ['account', 'الحساب', KeyIcon]]" :key="k"
+                <button v-for="[k, l, icon] in [['current', 'مواد هذا العام', BookOpenIcon], ['timetable', 'جدولي', CalendarDaysIcon], ['requests', 'طلباتي', DocumentTextIcon], ['results', 'النتائج السابقة', ChartBarIcon], ['fees', 'الرسوم', BanknotesIcon], ['history', 'السجل', ClockIcon], ['account', 'الحساب', KeyIcon], ...(evaluations.length ? [['evaluate', 'تقييم المواد', StarIcon]] : [])]" :key="k"
                     class="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 transition" :class="tab === k ? 'bg-white text-brand-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'" @click="tab = k">
                     <component :is="icon" class="h-4 w-4" /> {{ l }}
                 </button>
@@ -72,6 +86,37 @@ const savePw = () => pw.put(route('password.update'), { preserveScroll: true, on
             <a v-if="student.status === 'graduated'" :href="route('students.graduation', student.id)" target="_blank" class="btn-secondary ms-auto">وثيقة التخرج PDF</a>
             <a :href="route('students.transcript', student.id)" target="_blank" class="btn-secondary" :class="student.status !== 'graduated' && 'ms-auto'"><ArrowDownTrayIcon class="h-4 w-4" /> كشف الدرجات PDF</a>
         </div>
+
+        <!-- course evaluation -->
+        <section v-if="tab === 'evaluate'" class="mt-4 space-y-3">
+            <EmptyState v-if="!evaluations.length" class="card" :icon="StarIcon" title="قيّمت كل موادك. شكراً لك" />
+            <p v-else class="flex items-center gap-2 rounded-xl bg-slate-100 px-4 py-2.5 text-xs text-slate-600"><ShieldCheckIcon class="h-4 w-4 shrink-0" /> التقييم سري: يُحفظ رأيك بلا اسم، ولا تظهر النتائج إلا مجمّعة.</p>
+            <div v-for="e in evaluations" :key="`${e.round}-${e.offering}`" class="card overflow-hidden">
+                <button class="flex w-full items-center gap-3 px-5 py-4 text-start" @click="evalOpen === `${e.round}-${e.offering}` ? (evalOpen = null) : startEval(e)">
+                    <div class="min-w-0 flex-1">
+                        <p class="font-bold text-slate-800">{{ e.course }}</p>
+                        <p class="text-xs text-slate-500">{{ e.teacher || '—' }} · يغلق <span class="ltr">{{ e.closes_on }}</span></p>
+                    </div>
+                    <span class="btn-secondary !py-1.5 text-xs">{{ evalOpen === `${e.round}-${e.offering}` ? 'إغلاق' : 'قيّم' }}</span>
+                </button>
+                <form v-if="evalOpen === `${e.round}-${e.offering}`" class="space-y-4 border-t border-slate-100 px-5 py-5" @submit.prevent="sendEval">
+                    <div v-for="(q, i) in e.questions" :key="i">
+                        <p class="text-sm font-semibold text-slate-700"><span class="text-slate-400">{{ i + 1 }}.</span> {{ q.text }}</p>
+                        <div v-if="q.kind === 'scale'" class="mt-2 grid grid-cols-5 gap-1.5">
+                            <button v-for="v in 5" :key="v" type="button" class="rounded-lg border px-1 py-2 text-[11px] font-bold transition sm:text-xs"
+                                :class="ev.answers[i] === v ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-200 text-slate-600 hover:border-brand-300'" @click="ev.answers[i] = v">
+                                <span class="block text-base tabular-nums">{{ v }}</span>{{ scaleLabels[v - 1] }}
+                            </button>
+                        </div>
+                        <textarea v-else v-model="ev.answers[i]" rows="3" maxlength="1000" class="input mt-2 w-full" placeholder="اختياري" />
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button class="btn-primary" :disabled="ev.processing || !evalReady(e)">إرسال التقييم</button>
+                        <span v-if="!evalReady(e)" class="text-xs text-slate-400">أجب عن جميع الأسئلة المرقمة.</span>
+                    </div>
+                </form>
+            </div>
+        </section>
 
         <!-- current year -->
         <section v-if="tab === 'current'" class="card mt-4">

@@ -52,6 +52,8 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('manage-fee-schedules', fn (User $u) => $u->hasRole('accountant'));
         Gate::define('collect-fees', fn (User $u) => $u->hasRole('accountant', 'college_accountant'));
         Gate::define('approve-results', fn (User $u, CourseOffering $o) => $u->hasRoleIn($o->collegeId(), 'committee', 'dean'));
+        Gate::define('manage-evaluations', fn (User $u) => $u->hasRole('quality', 'college_quality'));
+        Gate::define('view-evaluations', fn (User $u) => $u->hasRole('quality', 'college_quality', 'dean', 'head', 'auditor'));
         Gate::define('handle-document-requests', fn (User $u) => $u->hasRole('registrar', 'college_registrar'));
         Gate::define('view-reports', fn (User $u) => $u->hasRole('registrar', 'college_registrar', 'dean', 'auditor'));
         Gate::define('view-progression', fn (User $u) => $u->hasRole('registrar', 'college_registrar', 'dean', 'committee', 'head', 'auditor'));

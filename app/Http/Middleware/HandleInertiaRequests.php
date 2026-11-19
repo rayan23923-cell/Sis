@@ -65,6 +65,7 @@ class HandleInertiaRequests extends Middleware
                 'reports' => Gate::allows('view-reports'),
                 'finance' => Gate::allows('view-finance'),
                 'offerings' => Gate::allows('manage-offerings'),
+                'evaluations' => Gate::allows('view-evaluations'),
             ] : [],
             'unread' => fn () => $user ? $user->unreadNotifications()->count() : 0,
             'pendingRequests' => fn () => $user && Gate::allows('handle-document-requests')

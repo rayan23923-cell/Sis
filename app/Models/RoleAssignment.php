@@ -22,10 +22,12 @@ class RoleAssignment extends Model
         'auditor' => 'مدقق',
         'accountant' => 'محاسب الجامعة',
         'college_accountant' => 'محاسب الكلية',
+        'quality' => 'ضمان الجودة (الجامعة)',
+        'college_quality' => 'ضمان الجودة (الكلية)',
     ];
 
     /** Roles that see the whole university regardless of college. */
-    public const UNIVERSITY_WIDE = ['super_admin', 'registrar', 'rules_admin', 'auditor', 'accountant'];
+    public const UNIVERSITY_WIDE = ['super_admin', 'registrar', 'rules_admin', 'auditor', 'accountant', 'quality'];
 
     protected $fillable = ['user_id', 'role', 'college_id', 'department_id'];
 

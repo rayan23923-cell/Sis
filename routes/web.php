@@ -5,6 +5,7 @@ use App\Http\Controllers\AuditController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\DocumentRequestController;
+use App\Http\Controllers\EvaluationController;
 use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\ImportController;
 use App\Http\Controllers\MasterSheetController;
@@ -151,6 +152,14 @@ Route::middleware(['auth', 'active', 'password.changed', 'two-factor', 'staff'])
     Route::post('/documents/{document}/revoke', [VerifyController::class, 'revoke'])->name('documents.revoke');
     Route::post('/student-accounts', [StudentAccountController::class, 'bulk'])->name('students.accounts.bulk');
 
+    Route::controller(EvaluationController::class)->prefix('evaluations')->name('evaluations.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::post('/forms', 'storeForm')->name('forms.store');
+        Route::put('/forms/{form}', 'updateForm')->name('forms.update');
+        Route::post('/rounds', 'storeRound')->name('rounds.store');
+        Route::put('/rounds/{round}', 'updateRound')->name('rounds.update');
+    });
+
     Route::controller(DocumentRequestController::class)->prefix('requests')->name('requests.')->group(function () {
         Route::get('/', 'index')->name('index');
         Route::post('/{documentRequest}/issue', 'issue')->name('issue');
@@ -191,6 +200,7 @@ Route::middleware(['auth', 'active', 'password.changed', 'two-factor'])->group(f
     Route::get('/payments/{onlinePayment}/sandbox', [OnlinePaymentController::class, 'sandbox'])->name('payments.sandbox');
     Route::post('/payments/{onlinePayment}/sandbox', [OnlinePaymentController::class, 'sandboxDecide'])->name('payments.sandbox.decide');
     Route::post('/payments/{onlinePayment}/reviewed', [OnlinePaymentController::class, 'reviewed'])->name('payments.reviewed');
+    Route::post('/portal/evaluations', [EvaluationController::class, 'submit'])->middleware('throttle:30,1')->name('portal.evaluations.submit');
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::get('/notifications/{id}', [NotificationController::class, 'open'])->name('notifications.open');
     Route::post('/notifications/read', [NotificationController::class, 'readAll'])->name('notifications.read');

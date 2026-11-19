@@ -10,6 +10,7 @@ use App\Models\StudentInvoice;
 use App\Models\TimetableSlot;
 use App\Services\AttendanceService;
 use App\Services\Documents\TranscriptService;
+use App\Services\EvaluationService;
 use App\Services\Payments\Gateways;
 use App\Services\Payments\OnlinePaymentService;
 use App\Services\TimetableService;
@@ -66,6 +67,11 @@ class PortalController extends Controller
                         ->map(fn (OnlinePayment $p) => ['uuid' => $p->uuid, 'gateway' => config("payments.gateways.{$p->gateway}.label"), 'amount' => $p->amount, 'status' => $p->status]),
                 ]),
             'gateways' => $gateways->available(),
+            'evaluations' => collect(app(EvaluationService::class)->pendingFor($student))->map(fn ($e) => [
+                'round' => $e['round']->id, 'round_name' => $e['round']->name, 'closes_on' => $e['round']->closes_on->toDateString(),
+                'offering' => $e['offering']->id, 'course' => $e['offering']->course->name_ar, 'teacher' => $e['offering']->teacher?->name,
+                'questions' => $e['round']->form->questions,
+            ])->values(),
             'minimumOnline' => (int) config('payments.minimum'),
             'timetable' => app(TimetableService::class)->present(app(TimetableService::class)->forStudent($student, TimetableService::currentTerms()->pluck('id')->all())),
             'days' => TimetableSlot::DAYS,

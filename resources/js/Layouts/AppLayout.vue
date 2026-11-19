@@ -7,7 +7,7 @@ import NotificationBell from '@/Components/NotificationBell.vue';
 import {
     AcademicCapIcon, BanknotesIcon, TableCellsIcon, ChartBarIcon, ArrowRightOnRectangleIcon, Bars3Icon, BookOpenIcon, BuildingLibraryIcon,
     ClipboardDocumentCheckIcon, DocumentTextIcon, ExclamationTriangleIcon, HomeIcon, ScaleIcon,
-    ShieldCheckIcon, UserCircleIcon, CalendarDaysIcon, InboxArrowDownIcon, FingerPrintIcon, LockClosedIcon, UsersIcon, XMarkIcon, ArrowTrendingUpIcon,
+    ShieldCheckIcon, UserCircleIcon, CalendarDaysIcon, InboxArrowDownIcon, FingerPrintIcon, LockClosedIcon, UsersIcon, XMarkIcon, ArrowTrendingUpIcon, StarIcon,
 } from '@heroicons/vue/24/outline';
 
 defineProps({ title: { type: String, default: '' } });
@@ -32,6 +32,7 @@ const nav = computed(() => [
     { label: 'الرسوم والأقساط', route: 'finance.index', match: 'finance.*', icon: BanknotesIcon, show: can.value.finance },
     { section: 'الحوكمة' },
     { label: 'السياسات الأكاديمية', route: 'policies.index', match: 'policies.*', icon: ScaleIcon, show: can.value.policies },
+    { label: 'تقييم التدريس', route: 'evaluations.index', match: 'evaluations.*', icon: StarIcon, show: true },
     { label: 'طلبات الوثائق', route: 'requests.index', match: 'requests.*', icon: InboxArrowDownIcon, show: can.value.requests, badge: page.props.pendingRequests },
     { label: 'الأوامر الإدارية', route: 'orders.index', match: 'orders.*', icon: DocumentTextIcon, show: can.value.orders },
     { label: 'المستخدمون والأدوار', route: 'users.index', match: 'users.*', icon: UsersIcon, show: can.value.users },

@@ -13,6 +13,11 @@ class EnsureUserIsActive
     public function handle(Request $request, Closure $next): Response
     {
         if ($request->user()?->is_active === false) {
+            if (! $request->hasSession()) {   // an app's token
+                $request->user()->currentAccessToken()?->delete();
+
+                return response()->json(['message' => 'هذا الحساب معطل. راجع مدير النظام.'], 401);
+            }
             Auth::guard('web')->logout();
             $request->session()->invalidate();
 

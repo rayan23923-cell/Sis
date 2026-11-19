@@ -22,12 +22,23 @@ use Inertia\Response;
 /** What a student sees: their record, locked results by year, current courses and their transcript. */
 class PortalController extends Controller
 {
-    public function home(Request $request, TranscriptService $transcripts, AttendanceService $attendance, Gateways $gateways, OnlinePaymentService $online): Response|RedirectResponse
+    public function home(Request $request): Response|RedirectResponse
     {
         $student = Student::where('user_id', $request->user()->id)->first();
         if (! $student) {
             return redirect()->route('dashboard');
         }
+
+        return Inertia::render('Portal/Home', self::payload($student));
+    }
+
+    /** Everything the portal shows a student; the apps read the same through /api/v1/student. */
+    public static function payload(Student $student): array
+    {
+        $transcripts = app(TranscriptService::class);
+        $attendance = app(AttendanceService::class);
+        $gateways = app(Gateways::class);
+        $online = app(OnlinePaymentService::class);
         $t = $transcripts->build($student);
         $student->load(['statusChanges' => fn ($q) => $q->latest('effective_on'), 'statusChanges.order']);
 
@@ -47,7 +58,7 @@ class PortalController extends Controller
             ];
         });
 
-        return Inertia::render('Portal/Home', [
+        return [
             'student' => [
                 'id' => $student->id, 'name' => $student->name_ar, 'name_en' => $student->name_en, 'number' => $student->university_number,
                 'status' => $student->status, 'status_label' => $t['status'], 'stage' => $t['stage'], 'system' => $t['system'],
@@ -84,7 +95,7 @@ class PortalController extends Controller
             'history' => $student->statusChanges->map(fn ($c) => [
                 'to' => Student::STATUSES[$c->to_status] ?? $c->to_status, 'on' => $c->effective_on?->toDateString(), 'order' => $c->order?->reference(), 'notes' => $c->notes,
             ]),
-        ]);
+        ];
     }
 
     public function password(): Response

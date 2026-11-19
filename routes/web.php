@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AppController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\AuditController;
 use App\Http\Controllers\DashboardController;
@@ -222,6 +223,9 @@ Route::middleware(['auth', 'active', 'password.changed', 'two-factor', 'staff'])
 });
 
 Route::middleware(['auth', 'active'])->get('/password/first', [PortalController::class, 'password'])->name('password.first');
+
+// The apps open the full site through a one-time link (see Api\AppController::webLink).
+Route::get('/app/enter/{token}', [AppController::class, 'enter'])->middleware('throttle:30,1')->where('token', '[A-Za-z0-9]{48}');
 
 // The offline server's activation page (same licensing portal as FileNest); see EnsureOfflineActivated.
 Route::get('/activate', [ActivationController::class, 'show']);

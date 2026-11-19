@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use App\Models\Enrollment;
 use App\Models\Student;
 use App\Models\StudentInvoice;
+use App\Models\TimetableSlot;
 use App\Services\AttendanceService;
 use App\Services\Documents\TranscriptService;
+use App\Services\TimetableService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -56,6 +58,8 @@ class PortalController extends Controller
                     'status' => $i->status, 'lines' => $i->lines(),
                     'payments' => $i->payments->whereNull('voided_at')->map(fn ($p) => ['id' => $p->id, 'receipt' => $p->receipt_number, 'amount' => $p->amount, 'paid_on' => $p->paid_on->toDateString()])->values(),
                 ]),
+            'timetable' => app(TimetableService::class)->present(app(TimetableService::class)->forStudent($student, TimetableService::currentTerms()->pluck('id')->all())),
+            'days' => TimetableSlot::DAYS,
             'history' => $student->statusChanges->map(fn ($c) => [
                 'to' => Student::STATUSES[$c->to_status] ?? $c->to_status, 'on' => $c->effective_on?->toDateString(), 'order' => $c->order?->reference(), 'notes' => $c->notes,
             ]),

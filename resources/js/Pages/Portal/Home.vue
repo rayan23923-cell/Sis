@@ -5,10 +5,11 @@ import PortalLayout from '@/Layouts/PortalLayout.vue';
 import Badge from '@/Components/Badge.vue';
 import EmptyState from '@/Components/EmptyState.vue';
 import InputError from '@/Components/InputError.vue';
+import WeekGrid from '@/Components/WeekGrid.vue';
 import { outcome, studentStatus } from '@/lib/labels';
-import { AcademicCapIcon, ArrowDownTrayIcon, BanknotesIcon, PrinterIcon, BookOpenIcon, ChartBarIcon, ClockIcon, ExclamationTriangleIcon, KeyIcon } from '@heroicons/vue/24/outline';
+import { AcademicCapIcon, ArrowDownTrayIcon, BanknotesIcon, PrinterIcon, BookOpenIcon, ChartBarIcon, ClockIcon, ExclamationTriangleIcon, KeyIcon, CalendarDaysIcon } from '@heroicons/vue/24/outline';
 
-const props = defineProps({ student: Object, current: Array, years: Array, official: Boolean, history: Array, fees: { type: Array, default: () => [] } });
+const props = defineProps({ student: Object, current: Array, years: Array, official: Boolean, history: Array, fees: { type: Array, default: () => [] }, timetable: { type: Array, default: () => [] }, days: Object });
 const money = (n) => Number(n ?? 0).toLocaleString('en-US');
 const lineTone = { paid: 'emerald', partial: 'sky', due: 'slate', overdue: 'rose' };
 const lineLabel = { paid: 'مسدد', partial: 'مسدد جزئياً', due: 'مستحق', overdue: 'متأخر' };
@@ -52,7 +53,7 @@ const savePw = () => pw.put(route('password.update'), { preserveScroll: true, on
 
         <div class="mt-6 flex flex-wrap items-center gap-2">
             <div class="flex gap-1 rounded-xl bg-slate-100 p-1 text-sm font-semibold">
-                <button v-for="[k, l, icon] in [['current', 'مواد هذا العام', BookOpenIcon], ['results', 'النتائج السابقة', ChartBarIcon], ['fees', 'الرسوم', BanknotesIcon], ['history', 'السجل', ClockIcon], ['account', 'الحساب', KeyIcon]]" :key="k"
+                <button v-for="[k, l, icon] in [['current', 'مواد هذا العام', BookOpenIcon], ['timetable', 'جدولي', CalendarDaysIcon], ['results', 'النتائج السابقة', ChartBarIcon], ['fees', 'الرسوم', BanknotesIcon], ['history', 'السجل', ClockIcon], ['account', 'الحساب', KeyIcon]]" :key="k"
                     class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition" :class="tab === k ? 'bg-white text-brand-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'" @click="tab = k">
                     <component :is="icon" class="h-4 w-4" /> {{ l }}
                 </button>
@@ -129,6 +130,14 @@ const savePw = () => pw.put(route('password.update'), { preserveScroll: true, on
                 </div>
             </section>
         </template>
+
+        <section v-if="tab === 'timetable'" class="card mt-4 p-2 sm:p-4">
+            <EmptyState v-if="!timetable.length" :icon="CalendarDaysIcon" title="لم يُنشر جدول هذا الفصل بعد" />
+            <template v-else>
+                <div class="mb-3 flex justify-end"><a :href="route('timetable.mine')" class="btn-secondary"><PrinterIcon class="h-4 w-4" /> طباعة</a></div>
+                <WeekGrid :slots="timetable" :days="days" />
+            </template>
+        </section>
 
         <!-- status history -->
         <section v-if="tab === 'history'" class="card mt-4">

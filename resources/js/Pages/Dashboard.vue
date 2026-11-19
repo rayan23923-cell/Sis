@@ -2,13 +2,14 @@
 import { computed } from 'vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import WeekGrid from '@/Components/WeekGrid.vue';
 import StatCard from '@/Components/StatCard.vue';
 import Badge from '@/Components/Badge.vue';
 import EmptyState from '@/Components/EmptyState.vue';
 import { offeringStatus, studentStatus, outcome, roundName, num } from '@/lib/labels';
 import { AcademicCapIcon, BuildingLibraryIcon, ClipboardDocumentCheckIcon, CheckBadgeIcon, InboxIcon, ArrowLeftIcon } from '@heroicons/vue/24/outline';
 
-const props = defineProps({ year: String, terms: Array, stats: Object, myCourses: Array, toApprove: Array, statusLabels: Object });
+const props = defineProps({ year: String, terms: Array, stats: Object, myCourses: Array, toApprove: Array, statusLabels: Object, myTimetable: { type: Array, default: () => [] }, days: Object });
 const page = usePage();
 const hour = new Date().getHours();
 const greeting = hour < 12 ? 'صباح الخير' : 'مساء الخير';
@@ -127,5 +128,9 @@ const studentRows = computed(() => Object.entries(props.stats.byStudentStatus ??
                 </section>
             </div>
         </div>
+        <section v-if="myTimetable.length" class="card mt-6 p-2 sm:p-4">
+            <div class="mb-3 flex items-center justify-between px-2"><h2 class="font-extrabold text-slate-800">جدولي الأسبوعي</h2><a :href="route('timetable.mine')" class="btn-secondary">طباعة</a></div>
+            <WeekGrid :slots="myTimetable" :days="days" />
+        </section>
     </AppLayout>
 </template>

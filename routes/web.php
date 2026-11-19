@@ -20,6 +20,7 @@ use App\Http\Controllers\StructureAdminController;
 use App\Http\Controllers\StructureController;
 use App\Http\Controllers\StudentAccountController;
 use App\Http\Controllers\StudentController;
+use App\Http\Controllers\TimetableController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\VerifyController;
 use App\Http\Middleware\SetLocale;
@@ -147,6 +148,17 @@ Route::middleware(['auth', 'active', 'password.changed', 'two-factor', 'staff'])
     Route::post('/documents/{document}/revoke', [VerifyController::class, 'revoke'])->name('documents.revoke');
     Route::post('/student-accounts', [StudentAccountController::class, 'bulk'])->name('students.accounts.bulk');
 
+    Route::controller(TimetableController::class)->group(function () {
+        Route::get('/timetable', 'index')->name('timetable.index');
+        Route::get('/timetable/pdf', 'pdf')->name('timetable.pdf');
+        Route::post('/timetable/slots', 'store')->name('timetable.store');
+        Route::put('/timetable/slots/{slot}', 'update')->name('timetable.update');
+        Route::delete('/timetable/slots/{slot}', 'destroy')->name('timetable.destroy');
+        Route::get('/rooms', 'rooms')->name('rooms.index');
+        Route::post('/rooms', 'storeRoom')->name('rooms.store');
+        Route::put('/rooms/{room}', 'updateRoom')->name('rooms.update');
+    });
+
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
 });
@@ -157,6 +169,7 @@ Route::middleware(['auth', 'active', 'password.changed', 'two-factor'])->group(f
     Route::get('/students/{student}/transcript.pdf', [DocumentController::class, 'transcript'])->name('students.transcript');
     Route::get('/students/{student}/graduation.pdf', [DocumentController::class, 'graduation'])->name('students.graduation');
     Route::get('/finance/receipts/{payment}.pdf', [FinanceController::class, 'receipt'])->name('finance.receipt');
+    Route::get('/my-timetable.pdf', [TimetableController::class, 'mine'])->name('timetable.mine');
 });
 
 // The account's own security page (reachable before two-step sign-in is set up, so it can be set up).

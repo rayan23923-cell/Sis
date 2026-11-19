@@ -91,8 +91,8 @@ class SecurityTest extends TestCase
      */
     public function test_narrow_accounts_cannot_open_management_pages(): void
     {
-        // policies.index: the approved academic rules are readable by all staff (read only)
-        $open = ['dashboard', 'offerings.index', 'structure.index', 'policies.index', 'profile.edit', 'security.show', 'portal.home', 'password.first',
+        // policies.index and timetable.index are readable by all staff (read only)
+        $open = ['dashboard', 'offerings.index', 'structure.index', 'policies.index', 'timetable.index', 'timetable.pdf', 'timetable.mine', 'profile.edit', 'security.show', 'portal.home', 'password.first',
             'offerings.teachers', 'verify.form', 'login', 'register', 'password.request', 'verification.notice', 'password.confirm', 'two-factor.challenge'];
         $student = $this->offeringA->enrollments()->first()->student;
         $studentUser = User::create(['name' => 's', 'email' => 's@x.test', 'password' => 'student-pass-2026', 'is_active' => true]);

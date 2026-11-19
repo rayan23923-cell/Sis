@@ -8,6 +8,8 @@ use App\Models\College;
 use App\Models\CourseOffering;
 use App\Models\FinalResult;
 use App\Models\Student;
+use App\Models\TimetableSlot;
+use App\Services\TimetableService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -34,7 +36,11 @@ class DashboardController extends Controller
         $resultsQuery = FinalResult::where('is_current', true)
             ->whereHas('enrollment.offering', fn ($o) => $o->visibleTo($user));
 
+        $mySlots = app(TimetableService::class)->forTeacher($request->user(), TimetableService::currentTerms()->pluck('id')->all());
+
         return Inertia::render('Dashboard', [
+            'myTimetable' => app(TimetableService::class)->present($mySlots),
+            'days' => TimetableSlot::DAYS,
             'year' => AcademicYear::where('is_current', true)->value('name'),
             'terms' => AcademicTerm::whereHas('year', fn ($y) => $y->where('is_current', true))->get(['id', 'name_ar', 'status']),
             'stats' => [

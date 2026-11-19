@@ -25,6 +25,11 @@ class CourseOffering extends Model
 
     protected $casts = ['is_evaluative' => 'boolean'];
 
+    public function slots(): HasMany
+    {
+        return $this->hasMany(TimetableSlot::class)->orderBy('day')->orderBy('starts_at');
+    }
+
     public function course(): BelongsTo
     {
         return $this->belongsTo(Course::class);

@@ -6,7 +6,7 @@ import FlashToast from '@/Components/FlashToast.vue';
 import {
     AcademicCapIcon, BanknotesIcon, TableCellsIcon, ChartBarIcon, ArrowRightOnRectangleIcon, Bars3Icon, BookOpenIcon, BuildingLibraryIcon,
     ClipboardDocumentCheckIcon, DocumentTextIcon, ExclamationTriangleIcon, HomeIcon, ScaleIcon,
-    ShieldCheckIcon, UserCircleIcon, FingerPrintIcon, LockClosedIcon, UsersIcon, XMarkIcon, ArrowTrendingUpIcon,
+    ShieldCheckIcon, UserCircleIcon, CalendarDaysIcon, FingerPrintIcon, LockClosedIcon, UsersIcon, XMarkIcon, ArrowTrendingUpIcon,
 } from '@heroicons/vue/24/outline';
 
 defineProps({ title: { type: String, default: '' } });
@@ -22,6 +22,7 @@ const nav = computed(() => [
     { section: 'الشؤون الأكاديمية' },
     { label: 'الطلبة', route: 'students.index', match: 'students.*', icon: AcademicCapIcon, show: can.value.students },
     { label: 'المواد والدرجات', route: 'offerings.index', match: 'offerings.*', icon: ClipboardDocumentCheckIcon, show: true },
+    { label: 'الجدول الأسبوعي', route: 'timetable.index', match: ['timetable.*', 'rooms.*'], icon: CalendarDaysIcon, show: true },
     { label: 'نتائج نهاية السنة', route: 'progression.index', match: 'progression.*', icon: ArrowTrendingUpIcon, show: can.value.progression },
     { label: 'الماستر شيت', route: 'master-sheet.show', match: 'master-sheet.*', icon: TableCellsIcon, show: can.value.progression },
     { label: 'التقارير والإحصاءات', route: 'reports.index', match: 'reports.*', icon: ChartBarIcon, show: can.value.reports },

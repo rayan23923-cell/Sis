@@ -223,7 +223,7 @@ jobs:
 
           $ip = (Get-Content "$root\lan-ip.txt").Trim()
           Write-Host "LAN IP: $ip"
-          foreach ($path in '/login', '/verify', '/up', '/build/manifest.json', '/brand.json', '/favicon.svg') {
+          foreach ($path in '/login', '/verify', '/download', '/api/v1/info', '/up', '/build/manifest.json', '/brand.json', '/favicon.svg') {
             $code = curl.exe -s -o NUL -w '%{http_code}' --max-time 30 "http://${ip}:8080$path"
             Write-Host "$path -> $code"
             if ($code -ne '200') { throw "$path answered $code on the LAN address" }

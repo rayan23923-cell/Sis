@@ -19,6 +19,10 @@ if [ ! -f .env ]; then
 fi
 # Settings added after the first install (an existing value is never changed).
 grep -q '^PAYMENTS_SANDBOX=' .env || printf '\nPAYMENTS_SANDBOX=true\n' >> .env
+# The apps and the offline server package (uploaded by their workflows); the containers read it as another user.
+mkdir -p public/downloads
+chmod 755 public public/downloads
+find public/downloads -maxdepth 1 -type f -exec chmod 644 {} +
 
 # Database backup before every update (last 20 kept in ~/sis-backups). A failed backup stops the deploy.
 if sudo docker ps --format '{{.Names}}' | grep -qx sis-db; then

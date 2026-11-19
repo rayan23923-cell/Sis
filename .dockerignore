@@ -4,6 +4,9 @@ node_modules
 vendor
 .env
 public/build
+public/downloads
+mobile
+offline
 public/hot
 public/storage
 storage/logs/*

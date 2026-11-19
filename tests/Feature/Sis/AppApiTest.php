@@ -87,4 +87,18 @@ class AppApiTest extends TestCase
         $this->app['auth']->forgetGuards();
         $this->getJson('/api/v1/me', ['Authorization' => 'Bearer '.$token])->assertUnauthorized();
     }
+
+    public function test_the_download_page_lists_what_was_published(): void
+    {
+        $this->get('/download')->assertOk()->assertSee('لا توجد ملفات للتحميل بعد.');
+        @mkdir(public_path('downloads'));
+        file_put_contents(public_path('downloads/releases.json'), json_encode(['android' => ['version' => '1.0.7', 'url' => '/downloads/Sis-1.0.7.apk']]));
+        try {
+            $this->get('/download')->assertOk()->assertSee('/downloads/Sis-1.0.7.apk')->assertDontSee('لا توجد ملفات');
+        } finally {
+            @unlink(public_path('downloads/releases.json'));
+            @rmdir(public_path('downloads'));
+        }
+        $this->getJson('/api/v1/info')->assertOk()->assertJsonPath('system', 'sis');
+    }
 }

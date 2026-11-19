@@ -27,5 +27,6 @@ const submit = () => form.post(route('login'), { onFinish: () => form.reset('pas
             <label class="flex items-center gap-2 text-sm text-slate-600"><input v-model="form.remember" type="checkbox" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500" /> تذكرني على هذا الجهاز</label>
             <button class="btn-primary w-full py-3 text-base" :disabled="form.processing">دخول</button>
         </form>
+        <a href="/download" class="mt-6 flex items-center justify-center gap-2 text-sm font-semibold text-brand-700 hover:text-brand-900">تطبيقات الهاتف والحاسوب</a>
     </GuestLayout>
 </template>

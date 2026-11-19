@@ -39,6 +39,7 @@ services:
         condition: service_healthy
     volumes:
       - sis_storage:/var/www/html/storage
+      - ../../public/downloads:/var/www/html/public/downloads:ro
     networks: [default]
 
   queue:
@@ -74,6 +75,9 @@ services:
     container_name: sis-web
     restart: unless-stopped
     depends_on: [app]
+    # The apps and the offline server package, uploaded by their workflows (not part of the image).
+    volumes:
+      - ../../public/downloads:/var/www/html/public/downloads:ro
     networks: [default, edge]
 
 volumes:

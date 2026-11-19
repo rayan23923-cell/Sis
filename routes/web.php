@@ -227,6 +227,14 @@ Route::middleware(['auth', 'active'])->get('/password/first', [PortalController:
 // The apps open the full site through a one-time link (see Api\AppController::webLink).
 Route::get('/app/enter/{token}', [AppController::class, 'enter'])->middleware('throttle:30,1')->where('token', '[A-Za-z0-9]{48}');
 
+// The apps and the offline server for download (public, no login); files are uploaded by their workflows.
+Route::get('/download', function () {
+    $file = public_path('downloads/releases.json');
+    $releases = is_file($file) ? json_decode((string) file_get_contents($file), true) : [];
+
+    return view('download', ['releases' => is_array($releases) ? $releases : []]);
+})->name('download');
+
 // The offline server's activation page (same licensing portal as FileNest); see EnsureOfflineActivated.
 Route::get('/activate', [ActivationController::class, 'show']);
 Route::post('/activate', [ActivationController::class, 'store'])->middleware('throttle:10,1');

@@ -180,6 +180,7 @@ jobs:
       - name: Check the published APK matches the build
         run: |
           V=$APP_VERSION
+          [ -f out/Sis-$V.apk ] || { echo "No Android build in this run."; exit 0; }
           url="https://sis.azoclinic.duckdns.org/downloads/Sis-$V.apk"
           curl -fsSL -o served.apk "$url"
           curl -sI "$url" | grep -iE '^(content-type|content-length|content-encoding)'

@@ -1,15 +1,15 @@
 <script setup>
 import { computed, ref } from 'vue';
-import { router, useForm } from '@inertiajs/vue3';
+import { Link, router, useForm } from '@inertiajs/vue3';
 import PortalLayout from '@/Layouts/PortalLayout.vue';
 import Badge from '@/Components/Badge.vue';
 import EmptyState from '@/Components/EmptyState.vue';
 import InputError from '@/Components/InputError.vue';
 import WeekGrid from '@/Components/WeekGrid.vue';
 import { outcome, studentStatus } from '@/lib/labels';
-import { AcademicCapIcon, ArrowDownTrayIcon, BanknotesIcon, PrinterIcon, BookOpenIcon, ChartBarIcon, ClockIcon, ExclamationTriangleIcon, KeyIcon, CalendarDaysIcon, DocumentTextIcon } from '@heroicons/vue/24/outline';
+import { AcademicCapIcon, ArrowDownTrayIcon, BanknotesIcon, PrinterIcon, BookOpenIcon, ChartBarIcon, ClockIcon, ExclamationTriangleIcon, KeyIcon, CalendarDaysIcon, DocumentTextIcon, CreditCardIcon, LockClosedIcon } from '@heroicons/vue/24/outline';
 
-const props = defineProps({ student: Object, current: Array, years: Array, official: Boolean, history: Array, fees: { type: Array, default: () => [] }, timetable: { type: Array, default: () => [] }, days: Object, requests: { type: Array, default: () => [] }, requestTypes: { type: Object, default: () => ({}) } });
+const props = defineProps({ student: Object, current: Array, years: Array, official: Boolean, history: Array, fees: { type: Array, default: () => [] }, timetable: { type: Array, default: () => [] }, days: Object, requests: { type: Array, default: () => [] }, requestTypes: { type: Object, default: () => ({}) }, gateways: { type: Object, default: () => ({}) }, minimumOnline: { type: Number, default: 1000 } });
 const money = (n) => Number(n ?? 0).toLocaleString('en-US');
 const lineTone = { paid: 'emerald', partial: 'sky', due: 'slate', overdue: 'rose' };
 const lineLabel = { paid: 'مسدد', partial: 'مسدد جزئياً', due: 'مستحق', overdue: 'متأخر' };
@@ -21,6 +21,13 @@ const reqTone = { submitted: 'amber', ready: 'emerald', delivered: 'slate', reje
 const lastGpa = computed(() => props.years.find((y) => y.gpa !== null)?.gpa ?? null);
 const totalCredits = computed(() => props.years.reduce((s, y) => s + y.credits, 0));
 const announced = computed(() => props.current.filter((c) => c.result).length);
+
+// online payment
+const payFor = ref(null);
+const pay = useForm({ gateway: '', what: 'installment' });
+const openPay = (f) => { payFor.value = f.id; pay.gateway = Object.keys(props.gateways)[0] ?? ''; pay.what = f.next < f.balance ? 'installment' : 'full'; };
+const payAmount = (f) => (pay.what === 'full' ? f.balance : f.next);
+const startPay = (f) => pay.post(route('payments.start', f.id), { preserveScroll: true });
 
 const pw = useForm({ current_password: '', password: '', password_confirmation: '' });
 const savePw = () => pw.put(route('password.update'), { preserveScroll: true, onSuccess: () => pw.reset(), onFinish: () => pw.reset('current_password', 'password', 'password_confirmation') });
@@ -126,6 +133,44 @@ const savePw = () => pw.put(route('password.update'), { preserveScroll: true, on
                         <Badge :tone="lineTone[l.status]">{{ lineLabel[l.status] }}</Badge>
                     </li>
                 </ul>
+                <!-- pay online -->
+                <div v-for="o in f.online" :key="o.uuid" class="flex flex-wrap items-center gap-2 border-t px-5 py-3 text-sm" :class="o.status === 'review' ? 'border-amber-100 bg-amber-50 text-amber-900' : 'border-sky-100 bg-sky-50 text-sky-900'">
+                    <ClockIcon class="h-5 w-5 shrink-0" />
+                    <span v-if="o.status === 'review'">دفعتك ({{ money(o.amount) }} دينار عبر {{ o.gateway }}) وصلت وتنتظر مراجعة المحاسب.</span>
+                    <span v-else>لديك دفعة لم تكتمل: {{ money(o.amount) }} دينار عبر {{ o.gateway }}.</span>
+                    <Link :href="route('payments.show', o.uuid)" class="ms-auto font-bold underline underline-offset-2">التفاصيل</Link>
+                </div>
+                <div v-if="f.balance > 0 && Object.keys(gateways).length && !f.online.some((o) => o.status === 'pending')" class="border-t border-slate-100 px-5 py-4">
+                    <button v-if="payFor !== f.id" class="btn-primary" @click="openPay(f)"><CreditCardIcon class="h-5 w-5" /> ادفع إلكترونياً</button>
+                    <form v-else class="space-y-4" @submit.prevent="startPay(f)">
+                        <div>
+                            <p class="mb-2 text-sm font-bold text-slate-700">المبلغ</p>
+                            <div class="grid gap-2 sm:grid-cols-2">
+                                <label v-if="f.next < f.balance" class="flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition" :class="pay.what === 'installment' ? 'border-brand-500 bg-brand-50 ring-1 ring-brand-500' : 'border-slate-200 hover:border-slate-300'">
+                                    <input v-model="pay.what" type="radio" value="installment" class="text-brand-600" />
+                                    <span><span class="block font-bold tabular-nums">{{ money(f.next) }} دينار</span><span class="text-xs text-slate-500">القسط المستحق القادم</span></span>
+                                </label>
+                                <label class="flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition" :class="pay.what === 'full' ? 'border-brand-500 bg-brand-50 ring-1 ring-brand-500' : 'border-slate-200 hover:border-slate-300'">
+                                    <input v-model="pay.what" type="radio" value="full" class="text-brand-600" />
+                                    <span><span class="block font-bold tabular-nums">{{ money(f.balance) }} دينار</span><span class="text-xs text-slate-500">كامل المتبقي</span></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div>
+                            <p class="mb-2 text-sm font-bold text-slate-700">طريقة الدفع</p>
+                            <div class="grid gap-2 sm:grid-cols-3">
+                                <button v-for="(label, k) in gateways" :key="k" type="button" class="rounded-xl border p-3 text-sm font-bold transition" :class="pay.gateway === k ? 'border-brand-500 bg-brand-50 text-brand-800 ring-1 ring-brand-500' : 'border-slate-200 text-slate-700 hover:border-slate-300'" @click="pay.gateway = k">{{ label }}</button>
+                            </div>
+                            <InputError :message="pay.errors.gateway" class="mt-1" />
+                        </div>
+                        <p v-if="payAmount(f) < minimumOnline" class="text-xs text-amber-700">المبلغ أقل من الحد الأدنى للدفع الإلكتروني ({{ money(minimumOnline) }} دينار)، يُدفع لدى المحاسب.</p>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <button class="btn-primary" :disabled="pay.processing || !pay.gateway || payAmount(f) < minimumOnline"><LockClosedIcon class="h-4 w-4" /> ادفع {{ money(payAmount(f)) }} دينار</button>
+                            <button type="button" class="btn-ghost" @click="payFor = null">إلغاء</button>
+                            <p class="w-full text-xs text-slate-400 sm:ms-auto sm:w-auto">يصدر الوصل تلقائياً بعد أن تؤكد البوابة الدفع.</p>
+                        </div>
+                    </form>
+                </div>
                 <div v-if="f.payments.length" class="border-t border-slate-100 px-5 py-3">
                     <p class="mb-2 text-sm font-bold text-slate-700">وصولات الدفع</p>
                     <a v-for="p in f.payments" :key="p.id" :href="route('finance.receipt', p.id)" target="_blank" class="me-2 mb-2 inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200">

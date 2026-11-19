@@ -121,8 +121,11 @@ class FeeService
         AuditContext::as($actor->id, $reason, fn () => $invoice->update(['status' => 'cancelled', 'cancel_reason' => $reason]));
     }
 
-    /** @param  array{amount: int, paid_on: string, method: string, reference?: ?string, notes?: ?string}  $data */
-    public function pay(StudentInvoice $invoice, array $data, User $actor): Payment
+    /**
+     * @param  array{amount: int, paid_on: string, method: string, reference?: ?string, notes?: ?string}  $data
+     * @param  User|null  $actor  null for a payment confirmed by an online gateway
+     */
+    public function pay(StudentInvoice $invoice, array $data, ?User $actor): Payment
     {
         $this->assertOpen($invoice);
         $amount = (int) $data['amount'];
@@ -136,11 +139,11 @@ class FeeService
             throw new WorkflowException('لا يُسجّل دفع بتاريخ لاحق.');
         }
 
-        return DB::transaction(fn () => AuditContext::as($actor->id, 'تسجيل دفعة', function () use ($invoice, $data, $amount, $actor) {
+        return DB::transaction(fn () => AuditContext::as($actor?->id, $actor ? 'تسجيل دفعة' : 'دفع إلكتروني مؤكد من البوابة', function () use ($invoice, $data, $amount, $actor) {
             $payment = Payment::create([
                 'receipt_number' => $this->nextReceiptNumber(), 'student_invoice_id' => $invoice->id, 'student_id' => $invoice->student_id,
                 'amount' => $amount, 'paid_on' => $data['paid_on'], 'method' => $data['method'],
-                'reference' => $data['reference'] ?? null, 'notes' => $data['notes'] ?? null, 'received_by' => $actor->id,
+                'reference' => $data['reference'] ?? null, 'notes' => $data['notes'] ?? null, 'received_by' => $actor?->id,
             ]);
             $this->refreshStatus($invoice->fresh());
 

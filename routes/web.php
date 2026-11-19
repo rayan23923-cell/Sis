@@ -11,6 +11,7 @@ use App\Http\Controllers\MasterSheetController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OfferingAdminController;
 use App\Http\Controllers\OfferingController;
+use App\Http\Controllers\OnlinePaymentController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\PolicyController;
 use App\Http\Controllers\PortalController;
@@ -183,6 +184,13 @@ Route::middleware(['auth', 'active', 'password.changed', 'two-factor'])->group(f
     Route::post('/portal/requests', [DocumentRequestController::class, 'store'])->middleware('throttle:10,1')->name('portal.requests.store');
     Route::post('/portal/requests/{documentRequest}/cancel', [DocumentRequestController::class, 'cancel'])->name('portal.requests.cancel');
     Route::get('/requests/{documentRequest}/file', [DocumentRequestController::class, 'file'])->name('requests.file');
+    Route::post('/portal/fees/{invoice}/pay', [OnlinePaymentController::class, 'start'])->middleware('throttle:10,1')->name('payments.start');
+    Route::get('/payments/{onlinePayment}', [OnlinePaymentController::class, 'show'])->name('payments.show');
+    Route::post('/payments/{onlinePayment}/check', [OnlinePaymentController::class, 'check'])->middleware('throttle:30,1')->name('payments.check');
+    Route::post('/payments/{onlinePayment}/cancel', [OnlinePaymentController::class, 'cancel'])->name('payments.cancel');
+    Route::get('/payments/{onlinePayment}/sandbox', [OnlinePaymentController::class, 'sandbox'])->name('payments.sandbox');
+    Route::post('/payments/{onlinePayment}/sandbox', [OnlinePaymentController::class, 'sandboxDecide'])->name('payments.sandbox.decide');
+    Route::post('/payments/{onlinePayment}/reviewed', [OnlinePaymentController::class, 'reviewed'])->name('payments.reviewed');
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::get('/notifications/{id}', [NotificationController::class, 'open'])->name('notifications.open');
     Route::post('/notifications/read', [NotificationController::class, 'readAll'])->name('notifications.read');
@@ -205,3 +213,9 @@ Route::middleware(['auth', 'active', 'password.changed', 'two-factor', 'staff'])
 Route::middleware(['auth', 'active'])->get('/password/first', [PortalController::class, 'password'])->name('password.first');
 
 require __DIR__.'/auth.php';
+
+// Online payment gateways: the payer's return and the gateway's server call. Neither is trusted; each only
+// prompts the system to ask the gateway for the payment's state.
+Route::match(['get', 'post'], '/payments/{onlinePayment}/return', [OnlinePaymentController::class, 'back'])->middleware('throttle:30,1')->name('payments.return');
+Route::post('/payment-notify/{gateway}', [OnlinePaymentController::class, 'notify'])
+    ->whereIn('gateway', ['qicard', 'zaincash', 'fib', 'sandbox'])->middleware('throttle:120,1')->name('payments.notify');

@@ -17,6 +17,8 @@ if [ ! -f .env ]; then
     umask 022
     echo "Created .env with fresh secrets."
 fi
+# Settings added after the first install (an existing value is never changed).
+grep -q '^PAYMENTS_SANDBOX=' .env || printf '\nPAYMENTS_SANDBOX=true\n' >> .env
 
 # Database backup before every update (last 20 kept in ~/sis-backups). A failed backup stops the deploy.
 if sudo docker ps --format '{{.Names}}' | grep -qx sis-db; then

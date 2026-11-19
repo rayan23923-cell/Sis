@@ -1,8 +1,10 @@
 <?php
 
+use App\Models\OnlinePayment;
 use App\Models\StudentInvoice;
 use App\Notifications\Notice;
 use App\Services\Notifier;
+use App\Services\Payments\OnlinePaymentService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
@@ -47,3 +49,20 @@ Artisan::command('sis:fee-reminders', function () {
 })->purpose('Remind students of due and overdue installments');
 
 Schedule::command('sis:fee-reminders')->dailyAt('09:00')->timezone('Asia/Baghdad');
+
+// Every 5 minutes: ask the gateways about online payments still open (a missed return or server call must not
+// lose a payment), and close the ones whose time ran out.
+Artisan::command('sis:payments-reconcile', function () {
+    $service = app(OnlinePaymentService::class);
+    $n = 0;
+    OnlinePayment::whereIn('status', ['pending', 'expired', 'cancelled'])->where('created_at', '>=', now()->subDay())
+        ->where(fn ($q) => $q->whereNull('checked_at')->orWhere('checked_at', '<', now()->subMinutes(2)))
+        ->orderBy('id')->limit(200)->get()
+        ->each(function ($p) use ($service, &$n) {
+            $service->refresh($p);
+            $n++;
+        });
+    $this->info("Checked {$n} online payments.");
+})->purpose('Confirm or expire open online payments with their gateways');
+
+Schedule::command('sis:payments-reconcile')->everyFiveMinutes()->withoutOverlapping();

@@ -1,6 +1,6 @@
 <script setup>
 import { ref, watch } from 'vue';
-import { Link, useForm, usePage } from '@inertiajs/vue3';
+import { Link, router, useForm, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import PageHeader from '@/Components/PageHeader.vue';
 import Badge from '@/Components/Badge.vue';
@@ -10,6 +10,11 @@ import Modal from '@/Components/Modal.vue';
 import { BanknotesIcon, DocumentPlusIcon, PrinterIcon, ReceiptPercentIcon, XCircleIcon } from '@heroicons/vue/24/outline';
 
 const props = defineProps({ student: Object, invoices: Array, currentYear: Object, schedule: Object, methods: Object, today: String, perm: Object });
+const onlineTone = { pending: 'sky', review: 'amber', failed: 'rose', expired: 'slate' };
+const markReviewed = (o) => {
+    const note = window.prompt('كيف عولجت الدفعة؟ (مثلاً: أُعيد المبلغ للطالب، أو سُجّل وصل يدوي)');
+    if (note) router.post(route('payments.reviewed', o.uuid), { note }, { preserveScroll: true });
+};
 const page = usePage();
 
 const money = (n) => Number(n ?? 0).toLocaleString('en-US');
@@ -118,6 +123,20 @@ const submit = () => {
                             <button v-if="perm.collect && !p.voided" class="rounded-lg p-1.5 text-slate-300 hover:bg-rose-50 hover:text-rose-600" title="إلغاء الوصل" @click="open('void', p)"><XCircleIcon class="h-4 w-4" /></button>
                         </li>
                     </ul>
+                    <template v-if="inv.online.length">
+                        <p class="px-5 pt-4 text-sm font-bold text-slate-700">محاولات الدفع الإلكتروني</p>
+                        <ul class="divide-y divide-slate-100">
+                            <li v-for="o in inv.online" :key="o.uuid" class="flex flex-wrap items-center gap-3 px-5 py-3 text-sm">
+                                <div class="min-w-0 flex-1">
+                                    <p class="font-bold tabular-nums">{{ money(o.amount) }} <span class="text-xs font-normal text-slate-400">· {{ o.gateway }} · <span class="ltr">{{ o.created_at }}</span></span></p>
+                                    <p v-if="o.message" class="text-xs" :class="o.status === 'review' ? 'text-amber-700' : 'text-slate-400'">{{ o.message }}</p>
+                                </div>
+                                <Badge :tone="onlineTone[o.status]">{{ o.reviewed ? 'روجعت' : o.status_label }}</Badge>
+                                <Link :href="route('payments.show', o.uuid)" class="text-xs font-semibold text-brand-700 hover:underline">التفاصيل</Link>
+                                <button v-if="perm.collect && o.status === 'review' && !o.reviewed" class="btn-secondary !py-1 text-xs" @click="markReviewed(o)">تمت المعالجة</button>
+                            </li>
+                        </ul>
+                    </template>
                 </div>
             </div>
         </section>

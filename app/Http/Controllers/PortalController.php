@@ -4,11 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Models\DocumentRequest;
 use App\Models\Enrollment;
+use App\Models\OnlinePayment;
 use App\Models\Student;
 use App\Models\StudentInvoice;
 use App\Models\TimetableSlot;
 use App\Services\AttendanceService;
 use App\Services\Documents\TranscriptService;
+use App\Services\Payments\Gateways;
+use App\Services\Payments\OnlinePaymentService;
 use App\Services\TimetableService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,7 +21,7 @@ use Inertia\Response;
 /** What a student sees: their record, locked results by year, current courses and their transcript. */
 class PortalController extends Controller
 {
-    public function home(Request $request, TranscriptService $transcripts, AttendanceService $attendance): Response|RedirectResponse
+    public function home(Request $request, TranscriptService $transcripts, AttendanceService $attendance, Gateways $gateways, OnlinePaymentService $online): Response|RedirectResponse
     {
         $student = Student::where('user_id', $request->user()->id)->first();
         if (! $student) {
@@ -58,7 +61,12 @@ class PortalController extends Controller
                     'id' => $i->id, 'year' => $i->year->name, 'net' => $i->net(), 'discount' => $i->discount, 'paid' => $i->paid(), 'balance' => $i->balance(),
                     'status' => $i->status, 'lines' => $i->lines(),
                     'payments' => $i->payments->whereNull('voided_at')->map(fn ($p) => ['id' => $p->id, 'receipt' => $p->receipt_number, 'amount' => $p->amount, 'paid_on' => $p->paid_on->toDateString()])->values(),
+                    'next' => $i->status === 'open' ? $online->amountFor($i, 'installment') : 0,
+                    'online' => OnlinePayment::where('student_invoice_id', $i->id)->whereIn('status', ['pending', 'review'])->latest('id')->get()
+                        ->map(fn (OnlinePayment $p) => ['uuid' => $p->uuid, 'gateway' => config("payments.gateways.{$p->gateway}.label"), 'amount' => $p->amount, 'status' => $p->status]),
                 ]),
+            'gateways' => $gateways->available(),
+            'minimumOnline' => (int) config('payments.minimum'),
             'timetable' => app(TimetableService::class)->present(app(TimetableService::class)->forStudent($student, TimetableService::currentTerms()->pluck('id')->all())),
             'days' => TimetableSlot::DAYS,
             'requests' => DocumentRequest::where('student_id', $student->id)->latest()->limit(20)->get()->map(fn (DocumentRequest $r) => [

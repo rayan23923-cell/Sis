@@ -29,6 +29,8 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->trustProxies(at: '*');
+        // Gateways call these from their own servers; they carry no session and only prompt a status check.
+        $middleware->validateCsrfTokens(except: ['payment-notify/*', 'payments/*/return']);
         $middleware->alias(['active' => EnsureUserIsActive::class, 'staff' => EnsureStaff::class, 'password.changed' => EnsurePasswordChanged::class, 'two-factor' => EnsureTwoFactor::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

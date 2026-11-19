@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\AcademicYear;
 use App\Models\College;
 use App\Models\FeeSchedule;
+use App\Models\OnlinePayment;
 use App\Models\Payment;
 use App\Models\Program;
 use App\Models\Student;
@@ -290,6 +291,8 @@ class FinanceController extends Controller
             'amount' => $i->amount, 'discount' => $i->discount, 'discount_reason' => $i->discount_reason, 'net' => $i->net(),
             'paid' => $i->paid(), 'balance' => $i->balance(), 'status' => $i->status, 'cancel_reason' => $i->cancel_reason,
             'lines' => $i->lines(),
+            'online' => OnlinePayment::where('student_invoice_id', $i->id)->whereNotIn('status', ['paid', 'cancelled'])->latest('id')->limit(10)->get()
+                ->map(fn (OnlinePayment $o) => OnlinePaymentController::present($o) + ['status_label' => OnlinePayment::STATUSES[$o->status]]),
             'payments' => $i->payments->map(fn (Payment $p) => [
                 'id' => $p->id, 'receipt' => $p->receipt_number, 'amount' => $p->amount, 'paid_on' => $p->paid_on->toDateString(),
                 'method' => Payment::METHODS[$p->method] ?? $p->method, 'reference' => $p->reference, 'by' => $p->receiver?->name,

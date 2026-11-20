@@ -1414,5 +1414,10 @@
     "كل الدوامات": "All shifts",
     "سياسات مؤقتة غير رسمية": "Temporary, unofficial policies",
     "تغيرت درجات ": "Marks of ",
-    " طالب أو السياسات المعتمدة بعد آخر احتساب. اضغط «احتساب النتائج» ثم ارفع.": " students, or the approved policies, changed after the last computation. Press «Compute results», then submit."
+    " طالب أو السياسات المعتمدة بعد آخر احتساب. اضغط «احتساب النتائج» ثم ارفع.": " students, or the approved policies, changed after the last computation. Press «Compute results», then submit.",
+    "توجد نتائج محتسبة لـ": "Computed results exist for ",
+    " طالب لم يعودوا مؤهلين لهذا الدور. راجع إدارة النظام.": " students who no longer sit this round. Contact the system administration.",
+    "النتائج المرفوعة لم تعد تطابق الدرجات أو السياسات المعتمدة (": "The submitted results no longer match the marks or the approved policies (",
+    " طالب). أعدها إلى التدريسي لإعادة الاحتساب.": " students). Return them to the teacher to compute again.",
+    "للطالب نتيجة في دور لاحق لم تُقفل بعد. صحّح بعد قفل ذلك الدور.": "The student has a result in a later round that is not locked yet. Correct after that round is locked."
 }

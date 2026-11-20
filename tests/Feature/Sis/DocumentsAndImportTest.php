@@ -73,6 +73,24 @@ class DocumentsAndImportTest extends TestCase
         $this->assertSame(3, AssessmentMark::where('mark', 45)->count());
     }
 
+    /** F-G3-1: marks changed by import after the computation block submit like marks typed in the form. */
+    public function test_marks_imported_after_computing_block_submit_until_computed_again(): void
+    {
+        $o = $this->offeringA;
+        $this->actingAs($this->teacherA)->post(route('offerings.marks', $o), ['rows' => $this->marksFor($o, [55, 20, 14, 17]), 'compute' => true]);
+        $res = $this->actingAs($this->teacherA)->get(route('offerings.marks.template', $o))->assertOk();
+        $path = tempnam(sys_get_temp_dir(), 't').'.xlsx';
+        file_put_contents($path, $res->streamedContent());
+        $rows = IOFactory::load($path)->getSheet(0)->toArray();
+        $rows[1][3] = (float) $rows[1][3] === 14.0 ? 30 : $rows[1][3] + 1; // one final mark changes
+        $this->actingAs($this->teacherA)->post(route('offerings.marks.import', $o), ['file' => $this->xlsx($rows)])->assertSessionHas('success');
+
+        $this->actingAs($this->teacherA)->post(route('offerings.submit', $o))->assertSessionHas('error');
+        $this->assertSame('open', $o->fresh()->status);
+        $this->actingAs($this->teacherA)->post(route('offerings.compute', $o));
+        $this->actingAs($this->teacherA)->post(route('offerings.submit', $o))->assertSessionHas('success');
+    }
+
     public function test_marks_import_rejects_whole_file_on_bad_row(): void
     {
         $c = $this->offeringA->components()->where('exam_round', 1)->orderBy('sort')->get();

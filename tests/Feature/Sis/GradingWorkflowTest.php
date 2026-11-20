@@ -5,6 +5,7 @@ namespace Tests\Feature\Sis;
 use App\AcademicRules\PolicySet;
 use App\Models\AcademicPolicy;
 use App\Models\AdministrativeOrder;
+use App\Models\AssessmentMark;
 use App\Models\AuditLog;
 use App\Models\FinalResult;
 use App\Services\GradebookService;
@@ -78,6 +79,118 @@ class GradingWorkflowTest extends TestCase
         $o = $this->offeringA;
         $this->actingAs($this->teacherA)->post(route('offerings.marks', $o), ['rows' => $this->marksFor($o, [55, 20, 14, 17]), 'compute' => true]);
         $this->widerResitScale('2025-09-01'); // approved for the same year after the drafts were computed
+
+        $this->actingAs($this->teacherA)->post(route('offerings.submit', $o))->assertSessionHas('error');
+        $this->assertSame('open', $o->fresh()->status);
+    }
+
+    public function test_several_changed_marks_block_submit_and_are_counted(): void
+    {
+        $o = $this->offeringA;
+        $this->actingAs($this->teacherA)->post(route('offerings.marks', $o), ['rows' => $this->marksFor($o, [55, 20, 14, 17]), 'compute' => true]);
+        $this->actingAs($this->teacherA)->post(route('offerings.marks', $o), ['rows' => $this->marksFor($o, [56, 20, 30, 18])]);
+
+        $this->actingAs($this->teacherA)->post(route('offerings.submit', $o))->assertSessionHas('error');
+        $this->assertStringContainsString('3', session('error'), 'three of the four students changed');
+        $this->assertSame('open', $o->fresh()->status);
+
+        $this->actingAs($this->teacherA)->post(route('offerings.compute', $o));
+        $this->actingAs($this->teacherA)->post(route('offerings.submit', $o))->assertSessionHas('success');
+        $this->assertSame([86.0, 50.0, 60.0, 48.0], FinalResult::orderBy('enrollment_id')->pluck('rounded_mark')->all());
+    }
+
+    public function test_a_cleared_mark_blocks_submit(): void
+    {
+        $o = $this->offeringA;
+        $this->actingAs($this->teacherA)->post(route('offerings.marks', $o), ['rows' => $this->marksFor($o, [55, 20, 14, 17]), 'compute' => true]);
+        $final = $o->components()->where('code', 'final')->first();
+        $first = $o->enrollments()->orderBy('id')->first();
+        $this->actingAs($this->teacherA)->post(route('offerings.marks', $o), ['rows' => [$first->id => [$final->id => ['mark' => '']]]]);
+
+        $this->actingAs($this->teacherA)->post(route('offerings.submit', $o))->assertSessionHas('error');
+        $this->assertSame('open', $o->fresh()->status);
+    }
+
+    public function test_a_deleted_mark_blocks_submit(): void
+    {
+        $o = $this->offeringA;
+        $this->actingAs($this->teacherA)->post(route('offerings.marks', $o), ['rows' => $this->marksFor($o, [55, 20, 14, 17]), 'compute' => true]);
+        AssessmentMark::where('enrollment_id', $o->enrollments()->orderBy('id')->first()->id)->first()->delete(); // e.g. removed in the database
+
+        $this->actingAs($this->teacherA)->post(route('offerings.submit', $o))->assertSessionHas('error');
+        $this->assertSame('open', $o->fresh()->status);
+    }
+
+    public function test_a_refused_submit_leaves_nothing_behind(): void
+    {
+        $o = $this->offeringA;
+        $this->actingAs($this->teacherA)->post(route('offerings.marks', $o), ['rows' => $this->marksFor($o, [55, 20, 14, 17]), 'compute' => true]);
+        $this->actingAs($this->teacherA)->post(route('offerings.marks', $o), ['rows' => $this->marksFor($o, [55, 20, 30, 17])]);
+        $snapshot = fn () => FinalResult::orderBy('id')->get()->map(fn ($r) => [$r->id, $r->status, $r->rounded_mark, $r->input_hash, (string) $r->updated_at])->all();
+        $drafts = $snapshot();
+        $audits = AuditLog::count();
+
+        $this->actingAs($this->teacherA)->post(route('offerings.submit', $o))->assertSessionHas('error');
+
+        $this->assertSame('open', $o->fresh()->status);
+        $this->assertSame($drafts, $snapshot());
+        $this->assertSame($audits, AuditLog::count(), 'no audit row for a submission that did not happen');
+    }
+
+    public function test_results_that_went_stale_after_submission_cannot_be_approved(): void
+    {
+        $o = $this->offeringA;
+        $this->actingAs($this->teacherA)->post(route('offerings.marks', $o), ['rows' => $this->marksFor($o, [55, 20, 14, 17]), 'compute' => true]);
+        $this->actingAs($this->teacherA)->post(route('offerings.submit', $o))->assertSessionHas('success');
+        $this->widerResitScale('2025-09-01'); // approved while the committee is reviewing
+
+        $this->actingAs($this->committeeA)->post(route('offerings.decide', $o), ['action' => 'approve'])->assertSessionHas('error');
+        $this->assertSame('submitted', $o->fresh()->status);
+        $this->assertSame(0, FinalResult::where('status', 'approved')->count());
+
+        // the way out: return, compute, submit, approve
+        $this->actingAs($this->committeeA)->post(route('offerings.decide', $o), ['action' => 'return', 'reason' => 'سياسة جديدة'])->assertSessionHas('success');
+        $this->actingAs($this->teacherA)->post(route('offerings.compute', $o));
+        $this->actingAs($this->teacherA)->post(route('offerings.submit', $o))->assertSessionHas('success');
+        $this->actingAs($this->committeeA)->post(route('offerings.decide', $o), ['action' => 'approve'])->assertSessionHas('success');
+        $this->assertSame('resit', FinalResult::orderBy('enrollment_id')->skip(2)->first()->outcome, '44 is FX under the new scale');
+    }
+
+    public function test_an_earlier_round_cannot_be_corrected_while_a_later_round_is_in_progress(): void
+    {
+        $this->runToLocked([55, 20, 14, 17]);
+        $o = $this->offeringA->fresh();
+        $this->actingAs($this->committeeA)->post(route('offerings.decide', $o), ['action' => 'next_round'])->assertSessionHas('success');
+        $o->refresh();
+        $resit = app(GradebookService::class)->eligible($o, 2)[0];
+        $r2 = $o->components()->where('code', 'final_r2')->first();
+        $this->actingAs($this->teacherA)->post(route('offerings.marks', $o), ['rows' => [$resit->id => [$r2->id => ['mark' => 15]]], 'compute' => true]);
+
+        // correcting round 1 to a pass would leave the round-2 draft (a fail) to be approved and locked
+        $r1 = FinalResult::where('enrollment_id', $resit->id)->where('exam_round', 1)->first();
+        $final = $o->components()->where('code', 'final')->first();
+        $order = AdministrativeOrder::create(['number' => '78', 'issued_on' => now()->toDateString(), 'type' => 'result_correction', 'title' => 'تصحيح', 'issued_by_authority' => 'العمادة']);
+        $this->actingAs($this->committeeA)->post(route('offerings.correct', [$o, $r1]), [
+            'order_id' => $order->id, 'reason' => 'خطأ', 'marks' => [$final->id => ['mark' => 26]],
+        ])->assertSessionHas('error');
+        $this->assertTrue($r1->fresh()->is_current);
+        $this->assertSame(1, FinalResult::where('enrollment_id', $resit->id)->where('exam_round', 1)->count());
+    }
+
+    public function test_a_draft_of_a_student_no_longer_in_the_round_blocks_submit(): void
+    {
+        $this->runToLocked([55, 20, 14, 17]);
+        $o = $this->offeringA->fresh();
+        $this->actingAs($this->committeeA)->post(route('offerings.decide', $o), ['action' => 'next_round']);
+        $o->refresh();
+        $resit = app(GradebookService::class)->eligible($o, 2)[0];
+        $r2 = $o->components()->where('code', 'final_r2')->first();
+        $this->actingAs($this->teacherA)->post(route('offerings.marks', $o), ['rows' => [$resit->id => [$r2->id => ['mark' => 15]]], 'compute' => true]);
+        // a round-2 draft for a student who passed round 1 (as an earlier correction could have left behind)
+        $passed = $o->enrollments()->orderBy('id')->first();
+        FinalResult::create(FinalResult::where('enrollment_id', $resit->id)->where('exam_round', 2)->first()->only([
+            'total_mark', 'rounded_mark', 'grade_code', 'grade_name_ar', 'grade_points', 'passed', 'outcome', 'credits_earned', 'policy_snapshot', 'input_hash',
+        ]) + ['enrollment_id' => $passed->id, 'exam_round' => 2, 'version' => 1, 'status' => 'draft', 'is_current' => true]);
 
         $this->actingAs($this->teacherA)->post(route('offerings.submit', $o))->assertSessionHas('error');
         $this->assertSame('open', $o->fresh()->status);

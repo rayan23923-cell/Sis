@@ -5,6 +5,7 @@
  * waits for a shared start instant, then runs one service call and prints a JSON line.
  *
  * php tests/Support/race-worker.php <start-at> <action> <args...>
+ * save: <offering> <user> <enrollment> <component> <mark>
  */
 
 use App\Models\AdministrativeOrder;
@@ -27,6 +28,7 @@ $args = array_map('intval', array_slice($argv, 3));
 // what the request has in hand before the competing writes (route-model binding, the signed-in user)
 $prepared = match ($action) {
     'enroll' => fn () => [Student::with('currentProgram')->findOrFail($args[0]), CourseOffering::findOrFail($args[1]), User::findOrFail($args[2])],
+    'save' => fn () => [CourseOffering::findOrFail($args[0]), User::findOrFail($args[1])],
     'submit', 'approve', 'lock', 'return' => fn () => [CourseOffering::findOrFail($args[0]), User::findOrFail($args[1])],
     'correct' => fn () => [FinalResult::findOrFail($args[0]), AdministrativeOrder::findOrFail($args[1]), User::findOrFail($args[2]), $args[3], $args[4]],
 };
@@ -40,6 +42,7 @@ try {
     $g = app(GradebookService::class);
     match ($action) {
         'enroll' => app(EnrollmentService::class)->enroll($in[0], $in[1], $in[2]),
+        'save' => $g->saveMarks($in[0], $in[1], [$args[2] => [$args[3] => ['mark' => $args[4]]]]),
         'submit' => $g->submit($in[0], $in[1]),
         'approve' => $g->approve($in[0], $in[1]),
         'lock' => $g->lock($in[0], $in[1]),

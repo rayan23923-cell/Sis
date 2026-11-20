@@ -153,9 +153,28 @@ class GradebookService
     {
         $this->transition($offering, 'open', 'المادة ليست في مرحلة إدخال الدرجات.', function (CourseOffering $offering) use ($user) {
             $round = $offering->current_round;
-            $missing = $this->eligible($offering, $round)->filter(fn (Enrollment $e) => ! $this->draftFor($e, $round));
+            $eligible = $this->eligible($offering, $round);
+            $missing = $eligible->filter(fn (Enrollment $e) => ! $this->draftFor($e, $round));
             if ($missing->isNotEmpty()) {
                 throw new WorkflowException('لم تُحتسب نتائج '.$missing->count().' طالب بعد. أكمل الدرجات ثم اضغط «احتساب النتائج».');
+            }
+            // F-G3-1: every draft must still be what the current marks and the year's policies give. A mark saved
+            // after the last computation, or a policy approved since, makes a draft stale; submitting it would send
+            // the committee a result that does not match the gradebook.
+            $components = $this->componentsForRound($offering, $round);
+            $credits = (float) $offering->course->credit_hours;
+            $stale = $eligible->filter(function (Enrollment $e) use ($round, $components, $credits) {
+                $draft = $this->draftFor($e, $round);
+                try {
+                    $now = $this->resultData($e, $round, $components, $credits);
+                } catch (RulesException) {
+                    return true;
+                }
+
+                return $draft->input_hash !== $now['input_hash'] || $draft->policy_snapshot != $now['policy_snapshot'];
+            });
+            if ($stale->isNotEmpty()) {
+                throw new WorkflowException('تغيرت درجات '.$stale->count().' طالب أو السياسات المعتمدة بعد آخر احتساب. اضغط «احتساب النتائج» ثم ارفع.');
             }
             AuditContext::as($user->id, 'رفع النتائج إلى اللجنة الامتحانية', fn () => $offering->update(['status' => 'submitted']));
         });

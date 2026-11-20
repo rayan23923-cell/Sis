@@ -1412,5 +1412,7 @@
     "فترة التقييم مغلقة.": "The evaluation round is closed.",
     "أجب عن جميع الأسئلة.": "Answer all questions.",
     "كل الدوامات": "All shifts",
-    "سياسات مؤقتة غير رسمية": "Temporary, unofficial policies"
+    "سياسات مؤقتة غير رسمية": "Temporary, unofficial policies",
+    "تغيرت درجات ": "Marks of ",
+    " طالب أو السياسات المعتمدة بعد آخر احتساب. اضغط «احتساب النتائج» ثم ارفع.": " students, or the approved policies, changed after the last computation. Press «Compute results», then submit."
 }

@@ -55,6 +55,34 @@ class GradingWorkflowTest extends TestCase
         $this->assertSame(0, FinalResult::where('rounded_mark', '<', 50)->count());
     }
 
+    /** F-G3-1: results that no longer match the marks (or the year's policies) cannot be submitted. */
+    public function test_results_computed_before_a_mark_changed_cannot_be_submitted(): void
+    {
+        $o = $this->offeringA;
+        $this->actingAs($this->teacherA)->post(route('offerings.marks', $o), ['rows' => $this->marksFor($o, [55, 20, 14, 17]), 'compute' => true]);
+        // a mark changes after the computation, and the teacher submits without computing again
+        $this->actingAs($this->teacherA)->post(route('offerings.marks', $o), ['rows' => $this->marksFor($o, [55, 20, 30, 17])]);
+
+        $this->actingAs($this->teacherA)->post(route('offerings.submit', $o))->assertSessionHas('error');
+        $this->assertSame('open', $o->fresh()->status);
+        $this->assertSame(44.0, FinalResult::orderBy('enrollment_id')->skip(2)->first()->rounded_mark, 'the stale draft is still 44, not 60');
+
+        // computing again brings the results in line, then submitting works
+        $this->actingAs($this->teacherA)->post(route('offerings.marks', $o), ['rows' => $this->marksFor($o, [55, 20, 30, 17]), 'compute' => true]);
+        $this->actingAs($this->teacherA)->post(route('offerings.submit', $o))->assertSessionHas('success');
+        $this->assertSame(60.0, FinalResult::orderBy('enrollment_id')->skip(2)->first()->rounded_mark);
+    }
+
+    public function test_results_computed_before_a_policy_of_their_year_was_approved_cannot_be_submitted(): void
+    {
+        $o = $this->offeringA;
+        $this->actingAs($this->teacherA)->post(route('offerings.marks', $o), ['rows' => $this->marksFor($o, [55, 20, 14, 17]), 'compute' => true]);
+        $this->widerResitScale('2025-09-01'); // approved for the same year after the drafts were computed
+
+        $this->actingAs($this->teacherA)->post(route('offerings.submit', $o))->assertSessionHas('error');
+        $this->assertSame('open', $o->fresh()->status);
+    }
+
     public function test_only_the_course_teacher_enters_marks(): void
     {
         $this->actingAs($this->committeeA)->post(route('offerings.marks', $this->offeringA), ['rows' => $this->marksFor($this->offeringA, [50])])->assertForbidden();

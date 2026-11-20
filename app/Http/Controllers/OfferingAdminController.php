@@ -186,14 +186,8 @@ class OfferingAdminController extends Controller
     {
         $this->authorizeOffering($request, $offering);
         abort_unless($enrollment->course_offering_id === $offering->id, 404);
-        if ($enrollment->results()->whereIn('status', ['approved', 'locked'])->exists()) {
-            throw new WorkflowException('لا يمكن سحب طالب له نتيجة مصادق عليها أو مقفلة.');
-        }
         $reason = $request->validate(['reason' => ['required', 'string', 'max:300']], [], ['reason' => 'السبب'])['reason'];
-        AuditContext::as($request->user()->id, $reason, function () use ($enrollment) {
-            $enrollment->results()->where('status', 'draft')->get()->each->delete();
-            $enrollment->update(['status' => 'withdrawn']);
-        });
+        $this->enrollments->withdraw($enrollment, $request->user(), $reason);
 
         return back()->with('success', 'سُحب الطالب من الشعبة.');
     }

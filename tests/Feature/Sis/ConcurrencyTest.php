@@ -10,6 +10,7 @@ use App\Models\AuditLog;
 use App\Models\CourseOffering;
 use App\Models\Enrollment;
 use App\Models\FinalResult;
+use App\Services\EnrollmentService;
 use App\Services\GradebookService;
 use App\Services\StudentService;
 use Illuminate\Foundation\Testing\RefreshDatabaseState;
@@ -255,5 +256,92 @@ class ConcurrencyTest extends TestCase
             }
         }
         fwrite(STDERR, '[F-G3-1 race] statuses after each round: '.implode(', ', $outcomes)."\n");
+    }
+
+    /** O-1: withdrawing students while the committee approves never leaves a withdrawn student with an approved result. */
+    public function test_withdrawals_racing_approval_leave_no_withdrawn_student_with_an_approved_result(): void
+    {
+        $o = $this->offeringA;
+        $this->toSubmitted($o);
+        $ids = $o->enrollments()->orderBy('id')->pluck('id')->all();
+        $results = FinalResult::count();
+
+        $out = $this->race([
+            ...array_fill(0, 3, ['approve', $o->id, $this->committeeA->id]),
+            ...array_map(fn ($id) => ['withdraw', $o->id, $id, $this->admin->id], array_slice($ids, 0, 3)),
+        ]);
+
+        $this->assertCleanRefusals($out);
+        $withdrawn = Enrollment::whereIn('id', $ids)->where('status', 'withdrawn')->pluck('id');
+        $this->assertSame(0, FinalResult::whereIn('enrollment_id', $withdrawn)->count(), 'a withdrawn student kept a result');
+        $this->assertSame(0, FinalResult::where('status', 'approved')->whereIn('enrollment_id', $withdrawn)->count());
+        $this->assertSame($results - $withdrawn->count(), FinalResult::count(), 'an approved result was deleted');
+        $this->assertSame('approved', $o->fresh()->status);
+    }
+
+    /**
+     * Start one competitor now (it does not wait for a shared instant) and confirm it is blocked: used to put a
+     * process behind a lock this test holds, then release the lock and see what the waiting process does.
+     */
+    private function startBlocked(array $competitor): Process
+    {
+        $env = ['APP_ENV' => 'testing', 'QUEUE_CONNECTION' => 'sync', 'CACHE_STORE' => 'array', 'MAIL_MAILER' => 'array'];
+        foreach (['DB_CONNECTION', 'DB_HOST', 'DB_PORT', 'DB_DATABASE', 'DB_USERNAME', 'DB_PASSWORD'] as $k) {
+            $env[$k] = (string) env($k);
+        }
+        $p = new Process([PHP_BINARY, base_path('tests/Support/race-worker.php'), '0', ...array_map('strval', $competitor)], base_path(), $env, null, 120);
+        $p->start();
+        usleep(4_000_000); // booted and reached the lock
+        $this->assertTrue($p->isRunning(), 'the competitor should be waiting on the lock: '.$p->getOutput().$p->getErrorOutput());
+
+        return $p;
+    }
+
+    private function finish(Process $p): array
+    {
+        $p->wait();
+        $line = json_decode(trim($p->getOutput()), true);
+        $this->assertIsArray($line, 'worker crashed: '.$p->getOutput().$p->getErrorOutput());
+
+        return $line;
+    }
+
+    /** O-1: a withdrawal that arrives while the approval is running waits for it, then is refused. */
+    public function test_a_withdrawal_during_approval_waits_and_is_refused(): void
+    {
+        $o = $this->offeringA;
+        $this->toSubmitted($o);
+        $e = $o->enrollments()->orderBy('id')->first();
+
+        DB::beginTransaction();
+        app(GradebookService::class)->approve($o->fresh(), $this->committeeA); // holds the offering lock until commit
+        $withdraw = $this->startBlocked(['withdraw', $o->id, $e->id, $this->admin->id]);
+        DB::commit();
+        $out = $this->finish($withdraw);
+
+        $this->assertFalse($out['ok']);
+        $this->assertTrue($out['refused'] ?? false, $out['error'] ?? '');
+        $this->assertSame('enrolled', $e->fresh()->status);
+        $this->assertSame('approved', FinalResult::where('enrollment_id', $e->id)->value('status'), 'the approved result is still there');
+    }
+
+    /** O-1: an approval that arrives while a withdrawal is running waits for it, then approves everyone else. */
+    public function test_an_approval_during_a_withdrawal_waits_and_approves_the_others(): void
+    {
+        $o = $this->offeringA;
+        $this->toSubmitted($o);
+        $e = $o->enrollments()->orderBy('id')->first();
+        $others = $o->enrollments()->where('id', '!=', $e->id)->count();
+
+        DB::beginTransaction();
+        app(EnrollmentService::class)->withdraw($e, $this->admin, 'انسحاب'); // holds the offering lock until commit
+        $approve = $this->startBlocked(['approve', $o->id, $this->committeeA->id]);
+        DB::commit();
+        $out = $this->finish($approve);
+
+        $this->assertTrue($out['ok'], $out['error'] ?? '');
+        $this->assertSame('withdrawn', $e->fresh()->status);
+        $this->assertSame(0, FinalResult::where('enrollment_id', $e->id)->count());
+        $this->assertSame($others, FinalResult::where('status', 'approved')->count());
     }
 }

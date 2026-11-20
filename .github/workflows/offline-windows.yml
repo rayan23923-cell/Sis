@@ -273,6 +273,15 @@ jobs:
           # Activation calls the licensing server over HTTPS; this fails without a CA list. Checked against github.com so the job does not depend on the licensing server being up.
           & "$root\php\php.exe" -c "$root\php\php.ini" -r "`$c = curl_init('https://github.com'); curl_setopt(`$c, CURLOPT_RETURNTRANSFER, true); curl_setopt(`$c, CURLOPT_NOBODY, true); curl_exec(`$c); `$e = curl_error(`$c); echo `$e; exit(`$e === '' ? 0 : 1);"
           if ($LASTEXITCODE -ne 0) { throw 'The bundled PHP cannot make HTTPS calls (activation would fail).' }
+          # Warning only, never fails the job: does the bundled PHP accept the licensing server's own certificate?
+          # A certificate error (curl 35/51/58/60) means activation would fail on site; an unreachable server only means it is down now.
+          $lic = 'https://dental.azoclinic.duckdns.org/up'
+          $out = & "$root\php\php.exe" -c "$root\php\php.ini" -r "`$c = curl_init('$lic'); curl_setopt_array(`$c, [CURLOPT_RETURNTRANSFER => true, CURLOPT_NOBODY => true, CURLOPT_CONNECTTIMEOUT => 10, CURLOPT_TIMEOUT => 20]); curl_exec(`$c); echo curl_errno(`$c), ' ', curl_error(`$c);"
+          $errno = [int](($out -split ' ', 2)[0])
+          if ($errno -eq 0) { Write-Host "Licensing server certificate accepted by the bundled PHP." }
+          elseif (@(35, 51, 58, 60) -contains $errno) { Write-Host "::warning title=Licensing server certificate::The bundled PHP rejects the certificate of $lic ($out). Activation would fail on site." }
+          else { Write-Host "::warning title=Licensing server unreachable::Could not reach $lic from CI ($out). Certificate not checked; this does not fail the build." }
+          $global:LASTEXITCODE = 0
           Start-Process -FilePath "$root\Sis.exe" -ArgumentList '--stop' -Wait
 
   publish:

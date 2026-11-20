@@ -6,8 +6,8 @@
     <title>تفعيل النظام - {{ config('sis.university_name') }}</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
-        :root { color-scheme: light dark; --bg: #f3f4fb; --card: #fff; --text: #1f2937; --muted: #6b7280; --border: #d1d5db; --accent: #4f46e5; --red: #dc2626; }
-        @media (prefers-color-scheme: dark) { :root { --bg: #0f172a; --card: #1e293b; --text: #e5e7eb; --muted: #94a3b8; --border: #334155; --accent: #6366f1; } }
+        :root { color-scheme: light dark; --bg: #f4f4f5; --card: #fff; --text: #1b1e21; --muted: #707579; --border: #e1e2e4; --accent: #229ed9; --red: #dc2626; }
+        @media (prefers-color-scheme: dark) { :root { --bg: #17212b; --card: #232e3c; --text: #f5f5f5; --muted: #7d8b99; --border: #101921; --accent: #2aabee; } }
         * { box-sizing: border-box; }
         body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 16px; background: var(--bg); color: var(--text); font-family: Tahoma, "Segoe UI", sans-serif; }
         .card { width: 100%; max-width: 440px; background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 28px 24px; }

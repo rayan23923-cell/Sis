@@ -10,7 +10,7 @@ const money = (n) => Number(n ?? 0).toLocaleString('en-US');
 
 <template>
     <Head title="بوابة دفع تجريبية" />
-    <div class="grid min-h-screen place-items-center bg-gradient-to-br from-slate-100 to-slate-200 px-4">
+    <div class="grid min-h-screen place-items-center bg-slate-100 px-4">
         <div class="w-full max-w-sm overflow-hidden rounded-3xl bg-white shadow-xl">
             <div class="flex items-center gap-2 bg-slate-900 px-5 py-4 text-white">
                 <BeakerIcon class="h-5 w-5 text-amber-300" />

@@ -153,7 +153,7 @@ class _Overview extends StatelessWidget {
     return ListView(padding: const EdgeInsets.all(16), children: [
       Container(
         padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(gradient: const LinearGradient(colors: [Brand.c600, Brand.c900], begin: Alignment.topRight, end: Alignment.bottomLeft), borderRadius: BorderRadius.circular(20)),
+        decoration: BoxDecoration(color: Brand.c500, borderRadius: BorderRadius.circular(14)),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('${s['name']}', style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800)),
           const SizedBox(height: 4),

@@ -64,7 +64,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: Container(
                       width: 72,
                       height: 72,
-                      decoration: BoxDecoration(gradient: const LinearGradient(colors: [Brand.c500, Brand.c900], begin: Alignment.topLeft, end: Alignment.bottomRight), borderRadius: BorderRadius.circular(20)),
+                      decoration: const BoxDecoration(color: Brand.c500, shape: BoxShape.circle),
                       child: const Icon(Icons.school_rounded, color: Colors.white, size: 40),
                     ),
                   ),

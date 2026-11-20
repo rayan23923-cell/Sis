@@ -49,58 +49,58 @@ const initials = computed(() => (user.value?.name ?? '').split(' ').slice(0, 2).
     <FlashToast />
     <div class="min-h-screen bg-slate-50">
         <!-- Sidebar -->
-        <div v-if="open" class="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm lg:hidden" @click="open = false" />
-        <aside class="fixed inset-y-0 start-0 z-50 flex w-72 flex-col bg-brand-950 text-brand-100 transition-transform lg:!translate-x-0"
+        <div v-if="open" class="fixed inset-0 z-40 bg-black/30 lg:hidden" @click="open = false" />
+        <aside class="fixed inset-y-0 start-0 z-50 flex w-72 flex-col border-e border-slate-200 bg-white text-slate-800 transition-transform lg:!translate-x-0"
             :class="open ? 'translate-x-0' : 'rtl:translate-x-full ltr:-translate-x-full'">
-            <div class="flex h-16 items-center gap-3 border-b border-white/10 px-5">
-                <div class="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-brand-400 to-emerald-400 text-white shadow-lg shadow-brand-900/40">
-                    <BookOpenIcon class="h-6 w-6" />
+            <div class="flex h-14 items-center gap-3 border-b border-slate-200 px-4">
+                <div class="grid h-9 w-9 place-items-center rounded-full bg-brand-500 text-white">
+                    <BookOpenIcon class="h-5 w-5" />
                 </div>
                 <div class="min-w-0 leading-tight">
-                    <p class="truncate text-sm font-extrabold text-white">{{ page.props.app.name }}</p>
-                    <p class="truncate text-xs text-brand-300">{{ page.props.app.university }}</p>
+                    <p class="truncate text-sm font-bold text-slate-900">{{ page.props.app.name }}</p>
+                    <p class="truncate text-xs text-slate-500">{{ page.props.app.university }}</p>
                 </div>
-                <button class="ms-auto rounded-lg p-1 text-brand-300 hover:bg-white/10 lg:hidden" @click="open = false"><XMarkIcon class="h-5 w-5" /></button>
+                <button class="ms-auto rounded-full p-1.5 text-slate-500 hover:bg-slate-100 lg:hidden" @click="open = false"><XMarkIcon class="h-5 w-5" /></button>
             </div>
-            <nav class="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+            <nav class="flex-1 space-y-0.5 overflow-y-auto px-2 py-3">
                 <template v-for="(item, i) in nav" :key="i">
-                    <p v-if="item.section" class="px-3 pb-1 pt-4 text-[11px] font-bold uppercase tracking-wider text-brand-400 first:pt-0">{{ item.section }}</p>
+                    <p v-if="item.section" class="px-3 pb-1 pt-4 text-xs font-bold text-brand-600 first:pt-1">{{ item.section }}</p>
                     <Link v-else :href="route(item.route)" @click="open = false"
-                        class="group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition"
-                        :class="active(item.match) ? 'bg-white/10 text-white shadow-inner' : 'text-brand-200 hover:bg-white/5 hover:text-white'">
-                        <component :is="item.icon" class="h-5 w-5 shrink-0" :class="active(item.match) ? 'text-emerald-300' : 'text-brand-400 group-hover:text-brand-200'" />
+                        class="group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold transition"
+                        :class="active(item.match) ? 'bg-brand-600 text-white' : 'text-slate-700 hover:bg-slate-100'">
+                        <component :is="item.icon" class="h-5 w-5 shrink-0" :class="active(item.match) ? 'text-white' : 'text-slate-500'" />
                         {{ item.label }}
-                        <span v-if="item.badge" class="ms-auto rounded-full bg-amber-400 px-2 py-0.5 text-[11px] font-bold text-brand-950">{{ item.badge }}</span>
+                        <span v-if="item.badge" class="ms-auto min-w-[1.25rem] rounded-full px-1.5 py-0.5 text-center text-[11px] font-bold" :class="active(item.match) ? 'bg-white text-brand-600' : 'bg-brand-500 text-white'">{{ item.badge }}</span>
                     </Link>
                 </template>
             </nav>
-            <div class="border-t border-white/10 p-3">
+            <div class="border-t border-slate-200 p-3">
                 <div class="flex items-center gap-3 rounded-xl px-2 py-2">
-                    <div class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand-700 text-sm font-bold text-white">{{ initials }}</div>
+                    <div class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand-500 text-sm font-bold text-white">{{ initials }}</div>
                     <div class="min-w-0 flex-1 leading-tight">
-                        <p class="truncate text-sm font-bold text-white">{{ user.name }}</p>
-                        <p class="truncate text-xs text-brand-300">{{ user.roles.join('، ') || 'بدون دور' }}</p>
+                        <p class="truncate text-sm font-bold text-slate-900">{{ user.name }}</p>
+                        <p class="truncate text-xs text-slate-500">{{ user.roles.join('، ') || 'بدون دور' }}</p>
                     </div>
                 </div>
                 <div class="mt-1 grid grid-cols-4 gap-1">
-                    <Link :href="route('profile.edit')" class="flex items-center justify-center gap-1 rounded-lg px-1 py-2 text-xs font-semibold text-brand-200 hover:bg-white/5 hover:text-white">
+                    <Link :href="route('profile.edit')" class="flex items-center justify-center gap-1 rounded-lg px-1 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 hover:text-brand-700">
                         <UserCircleIcon class="h-4 w-4" /> حسابي
                     </Link>
-                    <Link :href="route('security.show')" class="flex items-center justify-center gap-1 rounded-lg px-1 py-2 text-xs font-semibold hover:bg-white/5 hover:text-white" :class="route().current('security.*') ? 'text-white' : 'text-brand-200'">
+                    <Link :href="route('security.show')" class="flex items-center justify-center gap-1 rounded-lg px-1 py-2 text-xs font-semibold hover:bg-slate-100 hover:text-brand-700" :class="route().current('security.*') ? 'text-brand-700' : 'text-slate-600'">
                         <LockClosedIcon class="h-4 w-4" /> الأمان
                     </Link>
-                    <Link :href="route('logout')" method="post" as="button" class="flex items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-semibold text-brand-200 hover:bg-white/5 hover:text-white">
+                    <Link :href="route('logout')" method="post" as="button" class="flex items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 hover:text-brand-700">
                         <ArrowRightOnRectangleIcon class="h-4 w-4" /> خروج
                     </Link>
-                    <LocaleSwitch class="rounded-lg px-2 py-2 text-xs font-semibold text-brand-200 hover:bg-white/5 hover:text-white" />
+                    <LocaleSwitch class="rounded-lg px-2 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 hover:text-brand-700" />
                 </div>
             </div>
         </aside>
 
         <div class="lg:ps-72">
-            <header class="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-slate-200/70 bg-white/80 px-4 backdrop-blur sm:px-6 lg:px-8">
+            <header class="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-slate-200 bg-white px-4 sm:px-6 lg:px-8">
                 <button class="rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden" @click="open = true"><Bars3Icon class="h-6 w-6" /></button>
-                <p class="font-extrabold text-slate-800 lg:hidden">{{ page.props.app.name }}</p>
+                <p class="font-bold text-slate-900 lg:hidden">{{ page.props.app.name }}</p>
                 <p class="hidden truncate text-sm font-semibold text-slate-500 lg:block">{{ title }}</p>
                 <div class="ms-auto flex items-center gap-1">
                     <NotificationBell />

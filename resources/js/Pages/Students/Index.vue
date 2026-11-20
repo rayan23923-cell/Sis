@@ -102,7 +102,7 @@ const reset = () => Object.assign(f, { q: '', college: '', program: '', status: 
                                 </Link>
                             </td>
                             <td><p class="font-semibold">{{ s.department ?? '—' }}</p><p class="text-xs text-slate-500">{{ s.program }}</p></td>
-                            <td class="tabular-nums">{{ s.stage ?? "—" }}<span v-if="s.shift === 'evening'" class="ms-1 rounded bg-violet-50 px-1 text-[11px] font-bold text-violet-700">مسائي</span></td>
+                            <td class="tabular-nums">{{ s.stage ?? "—" }}<span v-if="s.shift === 'evening'" class="ms-1 rounded bg-brand-100 px-1 text-[11px] font-bold text-brand-900">مسائي</span></td>
                             <td><Badge :map="studentStatus" :value="s.status" dot /></td>
                         </tr>
                     </tbody>

@@ -27,6 +27,7 @@ class AuditPolicyDates extends Command
         {--program= : Only this program id}
         {--output= : Where to write the CSV report (default storage/app/reports/policy-date-audit-<time>.csv)}
         {--show-student-number : Print full university numbers (masked by default)}
+        {--format=csv : csv or json}
         {--include-matching : Also list results that match}';
 
     protected $description = 'Read-only report: results whose policy snapshot differs from the policies of their academic year.';
@@ -35,9 +36,8 @@ class AuditPolicyDates extends Command
     private const RESULT_TYPES = ['grade_scale', 'rounding', 'total', 'rounds'];
 
     private const CLASS_AR = [
-        'suspicious' => 'مشبوه',
-        'needs_review' => 'يحتاج مراجعة',
-        'possibly_legitimate' => 'قد يكون مشروعاً',
+        'suspicious' => 'مشتبه به',
+        'needs_review' => 'يحتاج مراجعة بشرية',
         'match' => 'مطابق',
     ];
 
@@ -54,10 +54,13 @@ class AuditPolicyDates extends Command
         'MATCH' => 'مطابق',
     ];
 
-    private const COLUMNS = ['result_id', 'student', 'academic_year', 'policy_date', 'program_id', 'course', 'exam_round',
+    private const COLUMNS = ['result_id', 'student', 'academic_year', 'policy_date', 'program_id', 'course', 'term', 'exam_round',
         'result_version', 'status', 'is_current', 'computed_at', 'policy_type', 'used_policy_id', 'used_version',
         'used_effective_from', 'used_effective_to', 'expected_policy_id', 'expected_version', 'expected_effective_from',
-        'expected_effective_to', 'expected_approved_at', 'classification', 'classification_ar', 'reason', 'reason_ar'];
+        'expected_effective_to', 'expected_approved_at', 'classification', 'classification_ar', 'reason', 'reason_ar', 'likely_legitimate'];
+
+    /** Reasons that usually have a lawful explanation; still for a person to confirm, never decided by the command. */
+    private const LIKELY_LEGITIMATE = ['ADDED_AFTER_RESULT', 'CORRECTION_KEEPS_ORIGINAL', 'NEWER_VERSION_AFTER_RESULT'];
 
     private bool $guard = false;
 
@@ -84,8 +87,14 @@ class AuditPolicyDates extends Command
             $this->guard = false;
         }
 
-        $path = $this->option('output') ?: storage_path('app/reports/policy-date-audit-'.now()->format('Ymd-His').'.csv');
-        $this->writeReport($path, $rows, $counts, $scanned, $dbReadOnly);
+        $format = strtolower((string) $this->option('format'));
+        if (! in_array($format, ['csv', 'json'], true)) {
+            $this->error('--format must be csv or json.');
+
+            return self::INVALID;
+        }
+        $path = $this->option('output') ?: storage_path('app/reports/policy-date-audit-'.now()->format('Ymd-His').'.'.$format);
+        $this->writeReport($path, $format, $rows, $counts, $scanned, $dbReadOnly);
 
         $this->table(['التصنيف', 'العدد'], collect(self::CLASS_AR)->map(fn ($ar, $k) => [$ar, $counts[$k] ?? 0])->values()->all());
         $this->line("نتائج مفحوصة: {$scanned}");
@@ -168,7 +177,7 @@ class AuditPolicyDates extends Command
 
         if (! $used) {
             // the snapshot has no policy of this type, but one applies now
-            return $this->approvedAfter($expected, $result) ? ['possibly_legitimate', 'ADDED_AFTER_RESULT'] : ['needs_review', 'MISSING_IN_SNAPSHOT'];
+            return $this->approvedAfter($expected, $result) ? ['needs_review', 'ADDED_AFTER_RESULT'] : ['needs_review', 'MISSING_IN_SNAPSHOT'];
         }
 
         $row = $this->policyRow($used['id']);
@@ -179,13 +188,13 @@ class AuditPolicyDates extends Command
             return ['suspicious', 'OUT_OF_PERIOD'];
         }
         if ($result->supersedes_id && $this->supersededUsed($result, $row->type) === $used['id']) {
-            return ['possibly_legitimate', 'CORRECTION_KEEPS_ORIGINAL'];
+            return ['needs_review', 'CORRECTION_KEEPS_ORIGINAL'];
         }
         if (! $expected) {
             return ['needs_review', 'NO_EXPECTED'];
         }
         if ($this->approvedAfter($expected, $result)) {
-            return ['possibly_legitimate', 'NEWER_VERSION_AFTER_RESULT'];
+            return ['needs_review', 'NEWER_VERSION_AFTER_RESULT'];
         }
         $approved = $expected->approved_at ?? $expected->created_at;
         if ($approved && $result->created_at && $approved->lt($result->created_at)) {
@@ -225,7 +234,7 @@ class AuditPolicyDates extends Command
 
     private function worse(string $a, string $b): string
     {
-        $rank = ['match' => 0, 'possibly_legitimate' => 1, 'needs_review' => 2, 'suspicious' => 3];
+        $rank = ['match' => 0, 'needs_review' => 1, 'suspicious' => 2];
 
         return $rank[$b] > $rank[$a] ? $b : $a;
     }
@@ -244,6 +253,7 @@ class AuditPolicyDates extends Command
             'policy_date' => $on->toDateString(),
             'program_id' => $e->studentProgram->program_id,
             'course' => $e->offering->course?->code ?? '',
+            'term' => $e->offering->term->code.' '.$e->offering->term->name_ar,
             'exam_round' => $r->exam_round,
             'result_version' => $r->version,
             'status' => $r->status,
@@ -263,6 +273,7 @@ class AuditPolicyDates extends Command
             'classification_ar' => self::CLASS_AR[$class],
             'reason' => $reason,
             'reason_ar' => self::REASON_AR[$reason],
+            'likely_legitimate' => in_array($reason, self::LIKELY_LEGITIMATE, true) ? 1 : 0,
         ];
     }
 
@@ -279,20 +290,16 @@ class AuditPolicyDates extends Command
         return str_repeat('*', max(0, mb_strlen($number) - 3)).mb_substr($number, -3);
     }
 
-    private function writeReport(string $path, array $rows, array $counts, int $scanned, bool $dbReadOnly): void
+    /**
+     * The report holds student data: it stays on the server under storage/ (never public), readable only by the
+     * application's own user (0640 in a 0750 folder). The command itself only runs from a shell on the server.
+     */
+    private function writeReport(string $path, string $format, array $rows, array $counts, int $scanned, bool $dbReadOnly): void
     {
         if (! is_dir(dirname($path))) {
             mkdir(dirname($path), 0750, true);
         }
-        $h = fopen($path, 'w');
-        fwrite($h, "\xEF\xBB\xBF"); // UTF-8 BOM so Excel shows Arabic
-        fputcsv($h, self::COLUMNS, escape: '');
-        foreach ($rows as $row) {
-            fputcsv($h, array_values($row), escape: '');
-        }
-        fclose($h);
-
-        file_put_contents($path.'.meta.json', json_encode([
+        $meta = [
             'report' => 'sis:audit-policy-dates',
             'generated_at' => now()->toIso8601String(),
             'filters' => ['year' => $this->option('year'), 'program' => $this->option('program')],
@@ -301,8 +308,24 @@ class AuditPolicyDates extends Command
             'rows' => count($rows),
             'student_numbers' => $this->option('show-student-number') ? 'full' : 'masked',
             'read_only' => ['statement_guard' => true, 'database_read_only_transaction' => $dbReadOnly],
-            'policy_date_rule' => 'CourseOffering::policyDate() = end of the academic year',
-            'csv_sha256' => hash_file('sha256', $path),
-        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+            'policy_date_rule' => 'CourseOffering::policyDate() = end of the academic year (pending the university decision, DOC-P3-01 R-3)',
+        ];
+
+        if ($format === 'json') {
+            file_put_contents($path, json_encode(['meta' => $meta, 'rows' => $rows], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        } else {
+            $h = fopen($path, 'w');
+            fwrite($h, "\xEF\xBB\xBF"); // UTF-8 BOM so Excel shows Arabic
+            fputcsv($h, self::COLUMNS, escape: '');
+            foreach ($rows as $row) {
+                fputcsv($h, array_values($row), escape: '');
+            }
+            fclose($h);
+        }
+        @chmod($path, 0640);
+
+        $meta['sha256'] = hash_file('sha256', $path);
+        file_put_contents($path.'.meta.json', json_encode($meta, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        @chmod($path.'.meta.json', 0640);
     }
 }

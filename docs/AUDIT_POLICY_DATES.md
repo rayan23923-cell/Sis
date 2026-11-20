@@ -9,24 +9,35 @@ php artisan sis:audit-policy-dates                       # كل النتائج
 php artisan sis:audit-policy-dates --year=2025-2026      # سنة واحدة
 php artisan sis:audit-policy-dates --program=12          # برنامج واحد
 php artisan sis:audit-policy-dates --output=/path/report.csv
+php artisan sis:audit-policy-dates --format=json           # JSON بدل CSV
 php artisan sis:audit-policy-dates --show-student-number # الرقم الجامعي كاملاً (مخفي افتراضياً)
 php artisan sis:audit-policy-dates --include-matching    # يضيف المطابق أيضاً
 ```
 
 ## المخرجات
-- CSV (UTF-8 مع BOM ليفتح في Excel): سطر لكل (نتيجة × نوع سياسة) مختلف.
-- `<report>.csv.meta.json`: وقت الإنشاء، المرشحات، الأعداد حسب التصنيف، هل الأرقام مخفية، وبصمة sha256 للـ CSV.
+- CSV (UTF-8 مع BOM ليفتح في Excel) أو JSON: سطر لكل (نتيجة × نوع سياسة) مختلف.
+- `<report>.meta.json`: وقت الإنشاء، المرشحات، الأعداد حسب التصنيف، هل الأرقام مخفية، وبصمة sha256 للـ CSV.
 - الرقم الجامعي يظهر بآخر 3 خانات فقط إلا مع `--show-student-number`. التقرير يبقى على الخادم؛ يُعامل كبيانات طلبة.
 
 ## التصنيف
-| التصنيف | السبب | المعنى |
-|---|---|---|
-| مشبوه | `UNKNOWN_POLICY` | النسخة المستخدمة غير موجودة |
-| مشبوه | `OUT_OF_PERIOD` | النسخة المستخدمة لم تكن نافذة في تاريخ سنة النتيجة (عَرَض X-9) |
-| مشبوه | `EXPECTED_EXISTED_BEFORE` | النسخة المتوقعة كانت معتمدة قبل الاحتساب ولم تُستخدم |
-| يحتاج مراجعة | `NO_EXPECTED`، `TIMING_UNCLEAR`، `MISSING_IN_SNAPSHOT` | لا يمكن الحكم آلياً |
-| قد يكون مشروعاً | `NEWER_VERSION_AFTER_RESULT` | النسخة المتوقعة اعتُمدت بعد احتساب النتيجة (قفلها) |
-| قد يكون مشروعاً | `CORRECTION_KEEPS_ORIGINAL` | تصحيح يحتفظ بسياسة النتيجة الأصلية (FR-AR-19) |
-| قد يكون مشروعاً | `ADDED_AFTER_RESULT` | نوع سياسة أُضيف بعد النتيجة |
+ثلاثة تصنيفات فقط. الأمر لا يقرر أن اختلافاً «صحيح»؛ عمود `likely_legitimate` تلميح للمراجع فقط.
 
-«قد يكون مشروعاً» لا يعني «صحيح»: يبقى القرار للجنة المختصة. تاريخ السياسة (نهاية السنة) هو السلوك الحالي بانتظار قرار الجامعة (DOC-P3-01 R-3)، وليس قاعدة رسمية.
+| التصنيف | السبب | المعنى | `likely_legitimate` |
+|---|---|---|---|
+| مطابق (`match`) | `MATCH` | اللقطة = السياسة النافذة في تاريخ السنة | — |
+| مشتبه به (`suspicious`) | `UNKNOWN_POLICY` | النسخة المستخدمة غير موجودة | 0 |
+| مشتبه به | `OUT_OF_PERIOD` | النسخة المستخدمة لم تكن نافذة في تاريخ سنة النتيجة (عَرَض X-9) | 0 |
+| مشتبه به | `EXPECTED_EXISTED_BEFORE` | النسخة المتوقعة كانت معتمدة قبل الاحتساب ولم تُستخدم | 0 |
+| يحتاج مراجعة بشرية (`needs_review`) | `NO_EXPECTED`، `TIMING_UNCLEAR`، `MISSING_IN_SNAPSHOT` | لا يمكن الحكم آلياً | 0 |
+| يحتاج مراجعة بشرية | `NEWER_VERSION_AFTER_RESULT` | النسخة المتوقعة اعتُمدت بعد قفل النتيجة | 1 |
+| يحتاج مراجعة بشرية | `CORRECTION_KEEPS_ORIGINAL` | تصحيح يحتفظ بسياسة النتيجة الأصلية (FR-AR-19) | 1 |
+| يحتاج مراجعة بشرية | `ADDED_AFTER_RESULT` | نوع سياسة أُضيف بعد النتيجة | 1 |
+
+تاريخ السياسة (نهاية السنة) هو السلوك الحالي بانتظار قرار الجامعة (DOC-P3-01 R-3)، وليس قاعدة رسمية.
+
+## الأعمدة
+`result_id`، `student` (مخفي)، `academic_year`، `term`، `policy_date`، `program_id`، `course`، `exam_round`، `result_version`، `status`، `is_current`، `computed_at`، `policy_type`، النسخة المستخدمة (`used_policy_id`، `used_version`، `used_effective_from/to`)، المتوقعة (`expected_policy_id`، `expected_version`، `expected_effective_from/to`، `expected_approved_at`)، `classification`، `reason` وترجمتهما، `likely_legitimate`.
+
+## الصلاحيات
+- يعمل من سطر أوامر الخادم فقط، لا من الواجهة.
+- التقرير تحت `storage/app/reports` (غير منشور)، بصلاحية 0640 داخل مجلد 0750.

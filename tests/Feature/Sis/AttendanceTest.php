@@ -72,6 +72,19 @@ class AttendanceTest extends TestCase
         $this->actingAs($this->teacherA)->get(route('offerings.attendance', $this->offeringA))->assertOk()
             ->assertInertia(fn ($p) => $p->where('students', fn ($rows) => collect($rows)->firstWhere('enrollment_id', $ids[1])['percent'] == 0)
                 ->where('policy.count_excused', false));
+
+        // recomputing the historical register (an edit of a 2025 lecture, made "today") still uses that year's policy
+        $session = AttendanceSession::orderBy('held_on')->first();
+        $this->actingAs($this->teacherA)->put(route('offerings.attendance.update', [$this->offeringA, $session]), [
+            'held_on' => $session->held_on->toDateString(), 'period' => $session->period, 'hours' => $session->hours, 'kind' => 'lecture',
+            'statuses' => [$ids[1] => 'excused', $ids[2] => 'excused'],
+        ])->assertSessionHas('success');
+        $this->actingAs($this->teacherA)->get(route('offerings.attendance', $this->offeringA))->assertOk()
+            ->assertInertia(fn ($p) => $p->where('students', fn ($rows) => collect($rows)->firstWhere('enrollment_id', $ids[1])['percent'] == 0
+                && collect($rows)->firstWhere('enrollment_id', $ids[2])['percent'] == 0));
+        // the gradebook page shows the same figures
+        $this->actingAs($this->teacherA)->get(route('offerings.show', $this->offeringA))
+            ->assertInertia(fn ($p) => $p->where("attendance.{$ids[1]}.percent", 0));
     }
 
     public function test_duplicate_period_future_date_and_strangers_are_refused(): void

@@ -45,7 +45,6 @@ class AuditPolicyDatesTest extends TestCase
     private function newScale(string $from, $approvedAt = null): AcademicPolicy
     {
         $cur = AcademicPolicy::where('type', 'grade_scale')->where('study_system', 'bologna')->orderByDesc('version')->firstOrFail();
-        $this->app->forgetScopedInstances();
 
         return AcademicPolicy::create([
             'type' => 'grade_scale', 'name_ar' => 'نسخة', 'version' => $cur->version + 1, 'executor' => $cur->executor,
@@ -81,7 +80,7 @@ class AuditPolicyDatesTest extends TestCase
         $this->assertSame(4, $meta['results_scanned']);
         $this->assertSame(4, $meta['results_by_classification']['match']);
         $this->assertSame(0, $meta['results_by_classification']['suspicious']);
-        $this->assertSame(hash_file('sha256', $this->out), $meta['csv_sha256']);
+        $this->assertSame(hash_file('sha256', $this->out), $meta['sha256']);
     }
 
     public function test_a_policy_not_in_force_in_the_results_year_is_suspicious(): void
@@ -102,6 +101,8 @@ class AuditPolicyDatesTest extends TestCase
         $this->assertSame('2026-09-01', $rows[0]['used_effective_from']);
         $this->assertSame('2025-2026', $rows[0]['academic_year']);
         $this->assertSame('2026-08-31', $rows[0]['policy_date']);
+        $this->assertSame('S1 الأول', $rows[0]['term']);
+        $this->assertSame('0', $rows[0]['likely_legitimate']);
         $this->assertSame(1, $meta['results_by_classification']['suspicious']);
     }
 
@@ -133,7 +134,27 @@ class AuditPolicyDatesTest extends TestCase
         $this->assertSame('CORRECTION_KEEPS_ORIGINAL', $byResult[(string) $new->id]['reason']);
         $this->assertSame('NEWER_VERSION_AFTER_RESULT', $byResult[(string) $old->id]['reason']);
         $this->assertSame(0, $meta['results_by_classification']['suspicious']);
-        $this->assertSame(5, $meta['results_by_classification']['possibly_legitimate']);
+        $this->assertSame(5, $meta['results_by_classification']['needs_review']);
+        $this->assertSame(['1'], array_values(array_unique(array_column($rows, 'likely_legitimate'))), 'a person decides; the hint says it is probably lawful');
+    }
+
+    public function test_the_report_can_be_saved_as_json_readable_only_by_the_application(): void
+    {
+        $this->runToLocked();
+        $this->newScale('2025-09-01', now()->subDays(3));
+        $json = preg_replace('/\\.csv$/', '.json', $this->out);
+
+        $this->artisan('sis:audit-policy-dates', ['--output' => $json, '--format' => 'json'])->assertSuccessful();
+        $report = json_decode(file_get_contents($json), true);
+        $meta = json_decode(file_get_contents($json.'.meta.json'), true);
+
+        $this->assertCount(4, $report['rows']);
+        $this->assertSame('suspicious', $report['rows'][0]['classification']);
+        $this->assertSame(hash_file('sha256', $json), $meta['sha256']);
+        $this->assertSame('0640', substr(sprintf('%o', fileperms($json)), -4));
+        $this->artisan('sis:audit-policy-dates', ['--format' => 'xml'])->assertFailed();
+        @unlink($json);
+        @unlink($json.'.meta.json');
     }
 
     public function test_student_numbers_are_masked_unless_asked(): void

@@ -23,7 +23,6 @@ class PolicyDateTest extends TestCase
     private function newVersion(string $type, string $system, string $from, callable $params): AcademicPolicy
     {
         $cur = AcademicPolicy::where('type', $type)->when($system !== '*', fn ($q) => $q->whereIn('study_system', [$system, 'any']))->orderByDesc('version')->firstOrFail();
-        $this->app->forgetScopedInstances(); // a new request or job
 
         return AcademicPolicy::create([
             'type' => $type, 'name_ar' => 'نسخة مراجعة', 'version' => $cur->version + 1, 'executor' => $cur->executor,
@@ -84,5 +83,22 @@ class PolicyDateTest extends TestCase
         $r = FinalResult::orderBy('enrollment_id')->skip(2)->first();
         $this->assertSame(2, $r->policy_snapshot['grade_scale']['version']);
         $this->assertSame('resit', $r->outcome);
+    }
+
+    /** B-01/X-9: moving "today" past the year, with a new version in force by then, changes no result of that year. */
+    public function test_historical_results_do_not_change_with_todays_date(): void
+    {
+        $o = $this->offeringA;
+        $this->actingAs($this->teacherA)->post(route('offerings.marks', $o), ['rows' => $this->marksFor($o, [55, 20, 14, 17]), 'compute' => true]);
+        $before = FinalResult::orderBy('id')->get(['id', 'rounded_mark', 'grade_code', 'outcome', 'policy_snapshot'])->toArray();
+
+        $this->newVersion('grade_scale', 'bologna', '2026-09-01', fn ($p) => ['bands' => collect($p['bands'])->map(fn ($b) => match ($b['code']) {
+            'FX' => ['min' => 40] + $b, 'F' => ['max' => 39] + $b, default => $b
+        })->all()] + $p);
+        $this->travelTo('2027-03-01');
+
+        // recompute the same drafts "today"
+        $this->actingAs($this->teacherA)->post(route('offerings.marks', $o), ['rows' => $this->marksFor($o, [55, 20, 14, 17]), 'compute' => true]);
+        $this->assertSame($before, FinalResult::orderBy('id')->get(['id', 'rounded_mark', 'grade_code', 'outcome', 'policy_snapshot'])->toArray());
     }
 }

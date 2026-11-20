@@ -3,12 +3,16 @@
 namespace Tests\Feature\Sis;
 
 use App\Models\AcademicTerm;
+use App\Models\AuditLog;
 use App\Models\CourseOffering;
 use App\Models\CurriculumCourse;
 use App\Models\Enrollment;
+use App\Models\FinalResult;
 use App\Models\Program;
 use App\Models\Student;
+use App\Services\EnrollmentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use RuntimeException;
 use Tests\TestCase;
 
 class OfferingAdminTest extends TestCase
@@ -50,6 +54,60 @@ class OfferingAdminTest extends TestCase
         $e = $o->enrollments()->first();
         $this->actingAs($this->teacherA)->post(route('offerings.marks', $o), ['rows' => [$e->id => [$cw->id => ['mark' => 40]]]]);
         $this->actingAs($this->admin)->put(route('offerings.components', $o), ['components' => $good])->assertSessionHas('error');
+    }
+
+    /** O-1: withdrawing a student with a draft removes the draft and records why, in one step. */
+    public function test_withdrawing_a_student_with_a_draft_removes_it_with_an_audit_row(): void
+    {
+        $o = $this->offeringA;
+        $this->actingAs($this->teacherA)->post(route('offerings.marks', $o), ['rows' => $this->marksFor($o, [55, 20, 14]), 'compute' => true]);
+        $e = $o->enrollments()->orderBy('id')->first();
+        $this->assertSame(1, FinalResult::where('enrollment_id', $e->id)->count());
+
+        $this->actingAs($this->admin)->post(route('offerings.withdraw', [$o, $e]), ['reason' => 'انسحاب بطلب الطالب'])->assertSessionHas('success');
+
+        $this->assertSame('withdrawn', $e->fresh()->status);
+        $this->assertSame(0, FinalResult::where('enrollment_id', $e->id)->count());
+        $this->assertSame(2, AuditLog::where('reason', 'انسحاب بطلب الطالب')->count(), 'the deleted draft and the status change');
+        // a second withdrawal is refused cleanly
+        $this->actingAs($this->admin)->post(route('offerings.withdraw', [$o, $e]), ['reason' => 'مرة ثانية'])->assertSessionHas('error');
+    }
+
+    public function test_a_student_with_an_approved_result_cannot_be_withdrawn(): void
+    {
+        $o = $this->offeringA;
+        $this->actingAs($this->teacherA)->post(route('offerings.marks', $o), ['rows' => $this->marksFor($o, [55, 20, 14]), 'compute' => true]);
+        $this->actingAs($this->teacherA)->post(route('offerings.submit', $o))->assertSessionHas('success');
+        $this->actingAs($this->committeeA)->post(route('offerings.decide', $o), ['action' => 'approve'])->assertSessionHas('success');
+        $e = $o->enrollments()->orderBy('id')->first();
+
+        $this->actingAs($this->admin)->post(route('offerings.withdraw', [$o, $e]), ['reason' => 'انسحاب'])->assertSessionHas('error');
+        $this->assertSame('enrolled', $e->fresh()->status);
+        $this->assertSame('approved', FinalResult::where('enrollment_id', $e->id)->value('status'));
+    }
+
+    /** O-1: if any step fails, nothing of the withdrawal remains: the draft, the status and the audit trail are as before. */
+    public function test_a_failed_withdrawal_leaves_nothing_behind(): void
+    {
+        $o = $this->offeringA;
+        $this->actingAs($this->teacherA)->post(route('offerings.marks', $o), ['rows' => $this->marksFor($o, [55, 20, 14]), 'compute' => true]);
+        $e = $o->enrollments()->orderBy('id')->first();
+        $audits = AuditLog::count();
+        Enrollment::updating(function (Enrollment $x) {
+            if ($x->status === 'withdrawn') {
+                throw new RuntimeException('simulated failure after the draft was deleted');
+            }
+        });
+
+        try {
+            app(EnrollmentService::class)->withdraw($e, $this->admin, 'انسحاب');
+            $this->fail('the simulated failure should have surfaced');
+        } catch (RuntimeException) {
+        }
+
+        $this->assertSame('enrolled', $e->fresh()->status);
+        $this->assertSame(1, FinalResult::where('enrollment_id', $e->id)->where('status', 'draft')->count(), 'the deleted draft is back');
+        $this->assertSame($audits, AuditLog::count(), 'no audit row for a withdrawal that did not happen');
     }
 
     public function test_enroll_and_withdraw_one_student(): void

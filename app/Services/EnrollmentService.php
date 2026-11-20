@@ -80,6 +80,28 @@ class EnrollmentService
     }
 
     /**
+     * O-1 (FR-CC-03): withdraw a student from an offering. Runs under the offering's row lock, the same lock that
+     * approval and locking take, so a result cannot be approved between the check and the withdrawal.
+     */
+    public function withdraw(Enrollment $enrollment, User $user, string $reason): void
+    {
+        DB::transaction(function () use ($enrollment, $user, $reason) {
+            CourseOffering::whereKey($enrollment->course_offering_id)->lockForUpdate()->firstOrFail();
+            $enrollment->refresh();
+            if ($enrollment->status === 'withdrawn') {
+                throw new WorkflowException('الطالب منسحب من هذه الشعبة مسبقاً.');
+            }
+            if ($enrollment->results()->whereIn('status', ['approved', 'locked'])->exists()) {
+                throw new WorkflowException('لا يمكن سحب طالب له نتيجة مصادق عليها أو مقفلة.');
+            }
+            AuditContext::as($user->id, $reason, function () use ($enrollment) {
+                $enrollment->results()->where('status', 'draft')->get()->each->delete();
+                $enrollment->update(['status' => 'withdrawn']);
+            });
+        });
+    }
+
+    /**
      * Enroll every active student of the offering's program and stage.
      *
      * @return array{enrolled: int, skipped: array<string, string>}

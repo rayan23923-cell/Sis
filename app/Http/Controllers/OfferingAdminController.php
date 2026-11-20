@@ -128,14 +128,17 @@ class OfferingAdminController extends Controller
             'components.*.exam_round' => ['required', 'integer', 'min:1', 'max:3'],
         ], ['components.*.code.regex' => 'الرمز بأحرف إنكليزية صغيرة وأرقام فقط.']);
 
-        if ($offering->enrollments()->whereHas('marks')->exists()) {
-            throw new WorkflowException('لا يمكن تغيير المكونات بعد إدخال أي درجة.');
-        }
         $rows = collect($data['components']);
         if ($rows->pluck('code')->duplicates()->isNotEmpty()) {
             throw new WorkflowException('رموز المكونات يجب ألا تتكرر.');
         }
         DB::transaction(function () use ($offering, $rows) {
+            // O-2: "no marks yet" is checked under the offering's row lock, the lock saving marks takes, so the first
+            // marks cannot land between the check and the replacement of the components
+            CourseOffering::whereKey($offering->id)->lockForUpdate()->firstOrFail();
+            if ($offering->enrollments()->whereHas('marks')->exists()) {
+                throw new WorkflowException('لا يمكن تغيير المكونات بعد إدخال أي درجة.');
+            }
             $offering->components()->delete();
             foreach ($rows->values() as $i => $c) {
                 $offering->components()->create(collect($c)->only(['code', 'name_ar', 'weight', 'max_mark', 'exam_round'])->all() + ['sort' => $i]);

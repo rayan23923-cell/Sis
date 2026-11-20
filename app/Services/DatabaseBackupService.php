@@ -341,6 +341,11 @@ class DatabaseBackupService
             }
             if (str_starts_with($line, 'INSERT INTO `') && preg_match('/^INSERT INTO `((?:[^`]|``)+)`/', $line, $m)) {
                 $filled[str_replace('``', '`', $m[1])] = true;
+            } elseif (str_contains($line, 'DEFINER=')) {
+                // B-09 (2026-11-21): a trigger keeps the account that created it as its DEFINER, and only an account
+                // with SET USER may restore it under another name; anyone else's restore stopped there, half done.
+                // Without the clause the trigger belongs to the account doing the restore.
+                $line = preg_replace('/\/\*!500\d\d DEFINER=`(?:[^`]|``)*`@`(?:[^`]|``)*`\s*\*\/\s?/', '', $line);
             }
             fwrite($to, $line);
         }

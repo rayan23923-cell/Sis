@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Sis;
 
+use App\Models\AcademicPolicy;
 use App\Models\AttendanceRecord;
 use App\Models\AttendanceSession;
 use App\Models\AuditLog;
@@ -50,6 +51,27 @@ class AttendanceTest extends TestCase
         // gradebook shows the percentage next to the student
         $this->actingAs($this->teacherA)->get(route('offerings.show', $this->offeringA))
             ->assertInertia(fn ($p) => $p->where("attendance.{$first}.percent", 20));
+    }
+
+    /** B-01 (FR-AR-18): a past year's attendance is assessed by that year's policy, not by the one in force today. */
+    public function test_attendance_uses_the_policy_of_the_offerings_year_not_today(): void
+    {
+        $ids = $this->offeringA->enrollments()->orderBy('id')->pluck('id');
+        for ($d = 1; $d <= 10; $d++) {
+            $this->lecture(sprintf('2025-10-%02d', $d), $d <= 2 ? [$ids[1] => 'excused'] : [])->assertSessionHas('success');
+        }
+        // a later version, in force only from the next academic year, that also counts excused absence
+        $current = AcademicPolicy::where('type', 'attendance')->orderByDesc('version')->firstOrFail();
+        AcademicPolicy::create([
+            'type' => 'attendance', 'name_ar' => 'نسخة السنة التالية', 'version' => $current->version + 1, 'executor' => $current->executor,
+            'parameters' => ['count_excused' => true] + $current->parameters, 'study_system' => $current->study_system,
+            'scope_type' => 'university', 'effective_from' => '2026-09-01', 'is_official' => false, 'status' => 'approved', 'approved_at' => now(),
+        ]);
+        $this->travelTo('2027-01-15'); // "today" is well inside the new version's period
+
+        $this->actingAs($this->teacherA)->get(route('offerings.attendance', $this->offeringA))->assertOk()
+            ->assertInertia(fn ($p) => $p->where('students', fn ($rows) => collect($rows)->firstWhere('enrollment_id', $ids[1])['percent'] == 0)
+                ->where('policy.count_excused', false));
     }
 
     public function test_duplicate_period_future_date_and_strangers_are_refused(): void

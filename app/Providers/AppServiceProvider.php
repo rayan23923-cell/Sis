@@ -16,7 +16,10 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        $this->app->singleton(PolicyResolver::class);
+        // scoped, not singleton (B-02, FR-AR-24): one instance per request and per queue job. The queue worker
+        // forgets scoped instances before every job, so a policy approved while a worker runs is seen by the next
+        // job; within one request or job every result is computed from the same policies.
+        $this->app->scoped(PolicyResolver::class);
     }
 
     public function boot(): void

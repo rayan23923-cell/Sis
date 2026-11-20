@@ -118,7 +118,7 @@ class OfferingController extends Controller
         $isTeacher = Gate::allows('enter-marks', $offering);
         $isCommittee = Gate::allows('approve-results', $offering);
         $program = $offering->program ?? $offering->enrollments()->first()?->studentProgram?->program;
-        $policies = $program ? app(PolicyResolver::class)->forProgram($program) : new PolicySet;
+        $policies = $program ? app(PolicyResolver::class)->forProgram($program, $offering->policyDate()) : new PolicySet;
 
         return Inertia::render('Offerings/Show', [
             'offering' => [

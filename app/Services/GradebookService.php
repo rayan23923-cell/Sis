@@ -7,6 +7,7 @@ use App\AcademicRules\Data\ComponentMark;
 use App\AcademicRules\Evaluative;
 use App\AcademicRules\Executors\ExamRounds;
 use App\AcademicRules\Executors\GradeScale;
+use App\AcademicRules\PolicySet;
 use App\AcademicRules\RulesException;
 use App\Models\AdministrativeOrder;
 use App\Models\AssessmentComponent;
@@ -259,7 +260,9 @@ class GradebookService
             $enrollment->load('marks');
 
             try {
-                $data = $this->resultData($enrollment, $result->exam_round, $components->values(), (float) $offering->course->credit_hours);
+                // a correction changes marks, not rules: it is computed with the policies of the result it corrects (FR-AR-19)
+                $data = $this->resultData($enrollment, $result->exam_round, $components->values(), (float) $offering->course->credit_hours,
+                    PolicySet::fromResultSnapshot($result->policy_snapshot));
             } catch (RulesException $e) {
                 throw new WorkflowException($this->explain($e->getMessage()));
             }
@@ -302,9 +305,9 @@ class GradebookService
     }
 
     /** @return array<string, mixed> */
-    private function resultData(Enrollment $enrollment, int $round, Collection $components, float $credits): array
+    private function resultData(Enrollment $enrollment, int $round, Collection $components, float $credits, ?PolicySet $policies = null): array
     {
-        $policies = $this->policies->forProgram($enrollment->studentProgram->program);
+        $policies ??= $this->policies->forProgram($enrollment->studentProgram->program, $enrollment->offering->policyDate());
         $marks = $enrollment->marks->keyBy('assessment_component_id');
         $input = $components->map(fn (AssessmentComponent $c) => new ComponentMark(
             $c->code, (float) $c->weight, (float) $c->max_mark,

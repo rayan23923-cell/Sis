@@ -56,4 +56,23 @@ final class PolicySet
     {
         return new self(array_map(fn (array $s) => Policy::fromSnapshot($s), array_values($snapshot)));
     }
+
+    /**
+     * The policies a stored course result was computed with (`final_results.policy_snapshot`).
+     * That snapshot also holds computed details (the evaluative block), so only the entries that are
+     * policy snapshots are taken, plus the decision policy nested in the evaluative block.
+     *
+     * @param  array<string, mixed>  $snapshot
+     */
+    public static function fromResultSnapshot(array $snapshot): self
+    {
+        $isPolicy = fn ($s) => is_array($s) && isset($s['type'], $s['executor'], $s['version']);
+        $policies = array_filter($snapshot, $isPolicy);
+        $decision = $snapshot['evaluative']['decision'] ?? null;
+        if ($isPolicy($decision) && ! isset($policies['decision'])) {
+            $policies['decision'] = $decision;
+        }
+
+        return new self(array_map(fn (array $s) => Policy::fromSnapshot($s), array_values($policies)));
+    }
 }

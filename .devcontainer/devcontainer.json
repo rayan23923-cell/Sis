@@ -2,7 +2,7 @@
     // A one-click preview of SIS on GitHub Codespaces: PHP 8.3, Node 22, SQLite and the demo data.
     // Open it from the repository's «Code → Codespaces» button, or from a pull request's branch.
     "name": "SIS preview",
-    "image": "mcr.microsoft.com/devcontainers/php:1-8.3-bookworm",
+    "build": { "dockerfile": "Dockerfile" },
     "features": {
         "ghcr.io/devcontainers/features/node:1": { "version": "22" }
     },

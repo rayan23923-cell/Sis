@@ -4,6 +4,7 @@ namespace Tests\Feature\Sis;
 
 use App\AcademicRules\CourseResultCalculator;
 use App\AcademicRules\Data\ComponentMark;
+use App\Http\Controllers\OfferingAdminController;
 use App\Models\AcademicYear;
 use App\Models\AdministrativeOrder;
 use App\Models\AuditLog;
@@ -14,6 +15,7 @@ use App\Services\EnrollmentService;
 use App\Services\GradebookService;
 use App\Services\StudentService;
 use Illuminate\Foundation\Testing\RefreshDatabaseState;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\Group;
@@ -380,5 +382,35 @@ class ConcurrencyTest extends TestCase
         $this->assertTrue($out['refused'] ?? false, 'not a clean refusal: '.($out['error'] ?? ''));
         $this->assertSame($components, $o->components()->orderBy('id')->pluck('id')->all(), 'the components are unchanged');
         $this->assertSame(1, DB::table('assessment_marks')->where('enrollment_id', $e->id)->count());
+    }
+
+    /**
+     * O-2: marks saved while a component change holds the lock wait for it, then go to the new components only.
+     * The saved form still carries the old component ids, which saveMarks ignores (existing behaviour): no mark may
+     * point at a removed component, and the new components are complete.
+     */
+    public function test_marks_saved_during_a_component_change_wait_and_leave_complete_components(): void
+    {
+        $o = $this->offeringA;
+        $old = $o->components()->where('exam_round', 1)->get()->keyBy('code');
+        $e = $o->enrollments()->orderBy('id')->first();
+        $rows = $o->components()->orderBy('sort')->get()->map(fn ($c) => $c->only(['code', 'name_ar', 'weight', 'max_mark', 'exam_round']))->all();
+
+        DB::beginTransaction();
+        $this->actingAs($this->admin);
+        $request = Request::create('/test', 'PUT', ['components' => $rows]);
+        $request->setUserResolver(fn () => $this->admin);
+        $request->setLaravelSession(app('session')->driver('array'));
+        app()->instance('request', $request);
+        app(OfferingAdminController::class)->components($request, $o); // replaces the components, holds the offering lock
+        $save = $this->startBlocked(['save', $o->id, $o->teacher->id, $e->id, $old['final']->id, 40]);
+        DB::commit();
+        $out = $this->finish($save);
+
+        $this->assertTrue($out['ok'] || ($out['refused'] ?? false), 'not a clean outcome: '.($out['error'] ?? ''));
+        $this->assertSame(0, DB::table('assessment_marks')->whereNotIn('assessment_component_id', DB::table('assessment_components')->select('id'))->count());
+        $now = $o->components()->orderBy('sort')->get();
+        $this->assertSame(array_column($rows, 'code'), $now->pluck('code')->all(), 'all the new components are there');
+        $this->assertEqualsWithDelta(100, $now->where('exam_round', 1)->sum('weight'), 0.001);
     }
 }

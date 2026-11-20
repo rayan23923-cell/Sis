@@ -77,6 +77,8 @@ jobs:
       - name: MariaDB client tools (mariadb-dump, as on the servers) and the restore database
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq mariadb-client
+          # the runner's client (11.x) asks for TLS by default; the 10.11 test server has none (no secrets cross)
+          printf '[client]\nskip-ssl\n' > ~/.my.cnf
           mariadb -h127.0.0.1 -uroot -proot-ci-only -e "CREATE DATABASE sis_restore; CREATE USER 'sis_restorer'@'%' IDENTIFIED BY 'restorer-ci-only'; GRANT ALL ON sis_restore.* TO 'sis_restorer'@'%';"
       - name: Suite on MariaDB
         run: php vendor/bin/phpunit

@@ -7,6 +7,7 @@
  * php tests/Support/race-worker.php <start-at> <action> <args...>
  * save: <offering> <user> <enrollment> <component> <mark>
  * withdraw: <offering> <enrollment> <user> (through OfferingAdminController, as the admin screen does)
+ * components: <offering> <user> (re-saves the offering's own components through OfferingAdminController)
  */
 
 use App\Http\Controllers\OfferingAdminController;
@@ -46,6 +47,7 @@ $prepared = match ($action) {
     'enroll' => fn () => [Student::with('currentProgram')->findOrFail($args[0]), CourseOffering::findOrFail($args[1]), User::findOrFail($args[2])],
     'save' => fn () => [CourseOffering::findOrFail($args[0]), User::findOrFail($args[1])],
     'withdraw' => fn () => [CourseOffering::findOrFail($args[0]), Enrollment::findOrFail($args[1]), User::findOrFail($args[2])],
+    'components' => fn () => [CourseOffering::findOrFail($args[0]), User::findOrFail($args[1])],
     'submit', 'approve', 'lock', 'return' => fn () => [CourseOffering::findOrFail($args[0]), User::findOrFail($args[1])],
     'correct' => fn () => [FinalResult::findOrFail($args[0]), AdministrativeOrder::findOrFail($args[1]), User::findOrFail($args[2]), $args[3], $args[4]],
 };
@@ -61,6 +63,9 @@ try {
         'enroll' => app(EnrollmentService::class)->enroll($in[0], $in[1], $in[2]),
         // the admin screen goes through the controller, as a request would (validation, authorisation, the service)
         'withdraw' => asAdmin($in[2], ['reason' => 'انسحاب'], fn ($r) => app(OfferingAdminController::class)->withdraw($r, $in[0], $in[1])),
+        'components' => asAdmin($in[1], ['components' => $in[0]->components()->orderBy('sort')->get()
+            ->map(fn ($c) => $c->only(['code', 'name_ar', 'weight', 'max_mark', 'exam_round']))->all()],
+            fn ($r) => app(OfferingAdminController::class)->components($r, $in[0])),
         'save' => $g->saveMarks($in[0], $in[1], [$args[2] => [$args[3] => ['mark' => $args[4]]]]),
         'submit' => $g->submit($in[0], $in[1]),
         'approve' => $g->approve($in[0], $in[1]),

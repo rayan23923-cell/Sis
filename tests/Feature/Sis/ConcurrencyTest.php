@@ -344,4 +344,41 @@ class ConcurrencyTest extends TestCase
         $this->assertSame(0, FinalResult::where('enrollment_id', $e->id)->count());
         $this->assertSame($others, FinalResult::where('status', 'approved')->count());
     }
+
+    /** O-2: re-saving the components while the teacher saves the first marks: clean refusals, never a mark without its component. */
+    public function test_components_saved_while_marks_are_entered_leave_no_mark_without_its_component(): void
+    {
+        $o = $this->offeringA;
+        $c = $o->components()->where('exam_round', 1)->get()->keyBy('code');
+        $ids = $o->enrollments()->orderBy('id')->pluck('id')->all();
+
+        $out = $this->race([
+            ...array_fill(0, 3, ['components', $o->id, $this->admin->id]),
+            ...array_map(fn ($id) => ['save', $o->id, $o->teacher->id, $id, $c['final']->id, 40], array_slice($ids, 0, 3)),
+        ]);
+
+        $this->assertCleanRefusals($out);
+        $this->assertSame(0, DB::table('assessment_marks')->whereNotIn('assessment_component_id', DB::table('assessment_components')->select('id'))->count(),
+            'marks point at components that no longer exist');
+    }
+
+    /** O-2: a component change arriving while marks are being saved waits, then is refused with a clear message. */
+    public function test_a_component_change_during_mark_entry_waits_and_is_refused(): void
+    {
+        $o = $this->offeringA;
+        $c = $o->components()->where('exam_round', 1)->get()->keyBy('code');
+        $components = $o->components()->orderBy('id')->pluck('id')->all();
+        $e = $o->enrollments()->orderBy('id')->first();
+
+        DB::beginTransaction();
+        app(GradebookService::class)->saveMarks($o, $o->teacher, [$e->id => [$c['final']->id => ['mark' => 40]]]); // holds the offering lock
+        $change = $this->startBlocked(['components', $o->id, $this->admin->id]);
+        DB::commit();
+        $out = $this->finish($change);
+
+        $this->assertFalse($out['ok']);
+        $this->assertTrue($out['refused'] ?? false, 'not a clean refusal: '.($out['error'] ?? ''));
+        $this->assertSame($components, $o->components()->orderBy('id')->pluck('id')->all(), 'the components are unchanged');
+        $this->assertSame(1, DB::table('assessment_marks')->where('enrollment_id', $e->id)->count());
+    }
 }

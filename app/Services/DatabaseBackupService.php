@@ -2,8 +2,10 @@
 
 namespace App\Services;
 
+use App\Support\ProtectedTriggers;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use ZipArchive;
 
@@ -13,6 +15,10 @@ use ZipArchive;
  * each file is kept once instead of once per backup. The folder is
  * `config('backup.path')`, outside the program folder in the offline package.
  * mysqldump first, falling back to a PHP dump when it isn't reachable.
+ *
+ * B-10 (FR-BC-07): every backup carries the database's triggers, whichever way it was made, or it fails: the PHP
+ * dump writes them too, each dump is checked against the triggers the database has, and a restore checks that the
+ * triggers in the file came back.
  */
 class DatabaseBackupService
 {
@@ -40,6 +46,7 @@ class DatabaseBackupService
         if (! $this->dumpWithMysqldump($connection, $sql)) {
             $this->dumpWithPhp($sql);
         }
+        $this->assertTriggersDumped($sql);
 
         $file = $sql;
         if (class_exists(ZipArchive::class)) {
@@ -70,8 +77,11 @@ class DatabaseBackupService
         $sql = $dir.DIRECTORY_SEPARATOR.$name.'.sql';
         if (($connection['driver'] ?? '') === 'sqlite') {
             file_put_contents($sql, "-- SQLite (tests): no MySQL dump.\n");
-        } elseif (! $this->dumpWithMysqldump($connection, $sql)) {
-            $this->dumpWithPhp($sql);
+        } else {
+            if (! $this->dumpWithMysqldump($connection, $sql)) {
+                $this->dumpWithPhp($sql);
+            }
+            $this->assertTriggersDumped($sql);
         }
         $zip = new ZipArchive;
         $zip->open($dir.DIRECTORY_SEPARATOR.$name.'.zip', ZipArchive::CREATE | ZipArchive::OVERWRITE);
@@ -121,7 +131,7 @@ class DatabaseBackupService
             if (filesize($sql) === 0) {
                 throw new \RuntimeException("The backup is empty: {$path}");
             }
-            [$portable, $filled] = $this->forMariaDb($sql);
+            [$portable, $filled, $triggers] = $this->forMariaDb($sql);
             if ($temp) {
                 @unlink($temp);
             }
@@ -137,6 +147,7 @@ class DatabaseBackupService
                 }
             }
             $this->assertFilled($filled);
+            $this->assertTriggersRestored($triggers);
         } finally {
             if ($temp) {
                 @unlink($temp);
@@ -321,9 +332,9 @@ class DatabaseBackupService
      * utf8mb4_0900_* collations and /*!80016 ... *\/ options MariaDB
      * rejects, so a hosted copy restored offline used to fail after the
      * tables were dropped. Line by line, so a large dump isn't held in memory.
-     * Also returns the tables the dump has rows for, to check afterwards.
+     * Also returns the tables the dump has rows for, and the triggers it creates, to check afterwards.
      *
-     * @return array{0: string, 1: array<int, string>}
+     * @return array{0: string, 1: array<int, string>, 2: array<int, string>}
      */
     private function forMariaDb(string $sql): array
     {
@@ -331,6 +342,7 @@ class DatabaseBackupService
         $in = fopen($sql, 'r');
         $to = fopen($out, 'w');
         $filled = [];
+        $triggers = [];
         // Rows as they are (2026-10-19): a row with id 0 keeps it, and the
         // zero dates older data has don't fail the strict mode MariaDB and
         // this app's connection use. The dump's own settings still follow.
@@ -345,14 +357,76 @@ class DatabaseBackupService
                 // B-09 (2026-11-21): a trigger keeps the account that created it as its DEFINER, and only an account
                 // with SET USER may restore it under another name; anyone else's restore stopped there, half done.
                 // Without the clause the trigger belongs to the account doing the restore.
-                $line = preg_replace('/\/\*!500\d\d DEFINER=`(?:[^`]|``)*`@`(?:[^`]|``)*`\s*\*\/\s?/', '', $line);
+                $line = preg_replace([
+                    '/\/\*!500\d\d DEFINER=`(?:[^`]|``)*`@`(?:[^`]|``)*`\s*\*\/\s?/',
+                    // B-10: the same clause outside a version comment (SHOW CREATE TRIGGER's own form)
+                    '/\bCREATE\s+DEFINER\s*=\s*(?:`(?:[^`]|``)*`|\S+?)@(?:`(?:[^`]|``)*`|\S+)\s+(?=TRIGGER\b)/i',
+                ], ['', 'CREATE '], $line);
+            }
+            if (! str_starts_with($line, 'INSERT INTO `')) {
+                foreach ($this->triggerNames($line) as $name) {
+                    $triggers[$name] = true;
+                }
             }
             fwrite($to, $line);
         }
         fclose($in);
         fclose($to);
 
-        return [$out, array_keys($filled)];
+        return [$out, array_keys($filled), array_keys($triggers)];
+    }
+
+    /** The triggers a line of a dump creates (mariadb-dump's and this class's own form). */
+    private function triggerNames(string $line): array
+    {
+        if (stripos($line, 'TRIGGER') === false) {
+            return [];
+        }
+        preg_match_all('/\bTRIGGER\s+`?((?:[^`\s]|``)+)`?\s+(?:BEFORE|AFTER)\s/i', $line, $m);
+
+        return array_map(fn ($n) => str_replace('``', '`', $n), $m[1]);
+    }
+
+    /** @return list<string> the triggers a dump file creates */
+    private function triggersInDump(string $file): array
+    {
+        $names = [];
+        $in = fopen($file, 'r');
+        while (($line = fgets($in)) !== false) {
+            if (! str_starts_with($line, 'INSERT INTO `')) {
+                foreach ($this->triggerNames($line) as $name) {
+                    $names[$name] = true;
+                }
+            }
+        }
+        fclose($in);
+
+        return array_keys($names);
+    }
+
+    /**
+     * B-10: a dump that lacks a trigger the database has is not a backup (restoring it would bring the data back
+     * without its protection). The file is removed and the backup fails, whichever tool made it.
+     */
+    private function assertTriggersDumped(string $file): void
+    {
+        if (! in_array(DB::connection()->getDriverName(), ['mariadb', 'mysql'], true)) {
+            return;
+        }
+        $missing = array_values(array_diff(ProtectedTriggers::present(), $this->triggersInDump($file)));
+        if ($missing !== []) {
+            @unlink($file);
+            throw new \RuntimeException('The backup is incomplete, so it was not kept: these triggers are not in it: '.implode(', ', $missing));
+        }
+    }
+
+    /** B-10: every trigger the backup creates must exist once it is restored. */
+    private function assertTriggersRestored(array $triggers): void
+    {
+        $missing = array_values(array_diff($triggers, ProtectedTriggers::present()));
+        if ($missing !== []) {
+            throw new \RuntimeException('The backup did not restore fully, these triggers are missing: '.implode(', ', $missing));
+        }
     }
 
     /**
@@ -361,16 +435,29 @@ class DatabaseBackupService
      * a failing CREATE TABLE further down went unnoticed and the restore
      * "succeeded" with empty tables. Dumps escape newlines inside values,
      * so a line ending in `;` ends a statement.
+     *
+     * B-10: a `DELIMITER x` line changes what ends a statement, as in the mariadb client, so a trigger's body
+     * (which holds `;`) goes in whole. Both mariadb-dump and dumpWithPhp() write triggers that way.
      */
     private function importWithPdo(string $sql): void
     {
         $in = fopen($sql, 'r');
         $statement = '';
+        $delimiter = ';';
         try {
             while (($line = fgets($in)) !== false) {
-                $statement .= $line;
-                if (! str_ends_with(rtrim($line), ';')) {
+                if (trim(preg_replace('/^--.*$/m', '', $statement)) === '' && preg_match('/^DELIMITER\s+(\S+)\s*$/i', $line, $m)) {
+                    $delimiter = $m[1];
+                    $statement = '';
+
                     continue;
+                }
+                $statement .= $line;
+                if (! str_ends_with(rtrim($line), $delimiter)) {
+                    continue;
+                }
+                if ($delimiter !== ';') {
+                    $statement = substr(rtrim($statement), 0, -strlen($delimiter));
                 }
                 try {
                     DB::unprepared($statement);
@@ -451,6 +538,10 @@ class DatabaseBackupService
      */
     private function binaries(string $tool): array
     {
+        if ($configured = config('backup.tools.'.$tool)) {
+            return $configured;
+        }
+
         return $tool === 'dump'
             ? ['mariadb-dump', 'C:\\xampp\\mysql\\bin\\mysqldump.exe', 'mysqldump']
             : ['mariadb', 'C:\\xampp\\mysql\\bin\\mysql.exe', 'mysql'];
@@ -473,6 +564,7 @@ class DatabaseBackupService
             return false;
         }
 
+        $failures = [];
         foreach ($this->binaries('dump') as $binary) {
             $command = escapeshellarg($binary).$this->connectionArgs($connection)
                 // --complete-insert (2026-10-20): column names in each INSERT,
@@ -487,9 +579,15 @@ class DatabaseBackupService
             if ($code === 0 && file_exists($fullPath) && filesize($fullPath) > 0) {
                 return true;
             }
+            $failures[] = $binary.' ('.$code.'): '.mb_substr(implode(' ', array_slice($output, -3)), 0, 300);
         }
 
         @unlink($fullPath);
+        // B-10 (R-35): falling back to the PHP dump is never silent; why the tools failed goes to the log.
+        $password = (string) ($connection['password'] ?? '');
+        Log::warning('Backup: mariadb-dump was not usable, so the PHP dump is used.', [
+            'attempts' => $password === '' ? $failures : str_replace($password, '***', $failures),
+        ]);
 
         return false;
     }
@@ -527,7 +625,7 @@ class DatabaseBackupService
             throw new \RuntimeException("Unable to write backup file: {$fullPath}");
         }
 
-        fwrite($handle, "SET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS=0;\nSET SESSION sql_mode='NO_AUTO_VALUE_ON_ZERO,NO_ENGINE_SUBSTITUTION';\n\n");
+        fwrite($handle, "-- SIS backup: php (mariadb-dump was not usable)\nSET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS=0;\nSET SESSION sql_mode='NO_AUTO_VALUE_ON_ZERO,NO_ENGINE_SUBSTITUTION';\n\n");
 
         $tables = array_map(fn ($row) => array_values((array) $row)[0], $pdo->query('SHOW FULL TABLES WHERE Table_type = \'BASE TABLE\'')->fetchAll(\PDO::FETCH_NUM));
 
@@ -565,10 +663,28 @@ class DatabaseBackupService
             }
 
             fwrite($handle, "\n");
+            $this->writeTriggers($handle, $pdo, $table);
         }
 
         fwrite($handle, "SET FOREIGN_KEY_CHECKS=1;\n");
         fclose($handle);
+    }
+
+    /**
+     * B-10: the table's triggers, after its rows, as mariadb-dump writes them: each with the sql_mode it was made
+     * under, between DELIMITER lines, and without DEFINER, so it belongs to whoever restores it (D-G4-4).
+     */
+    private function writeTriggers($handle, \PDO $pdo, string $table): void
+    {
+        $triggers = $pdo->query('SHOW TRIGGERS WHERE `Table` = '.$pdo->quote($table))->fetchAll(\PDO::FETCH_ASSOC);
+        foreach ($triggers as $trigger) {
+            $name = str_replace('`', '``', $trigger['Trigger']);
+            $create = $pdo->query("SHOW CREATE TRIGGER `{$name}`")->fetch(\PDO::FETCH_ASSOC);
+            $statement = rtrim(trim($create['SQL Original Statement']), ';');
+            $statement = preg_replace('/^CREATE\s+DEFINER\s*=\s*(?:`(?:[^`]|``)*`|\S+?)@(?:`(?:[^`]|``)*`|\S+)\s+/i', 'CREATE ', $statement);
+            fwrite($handle, "SET @sis_saved_sql_mode = @@SESSION.sql_mode;\nSET SESSION sql_mode = ".$pdo->quote($create['sql_mode']).";\n"
+                ."DELIMITER ;;\n{$statement};;\nDELIMITER ;\nSET SESSION sql_mode = @sis_saved_sql_mode;\n\n");
+        }
     }
 
     private function writeInsert($handle, string $quotedTable, array $columns, array $batch): void

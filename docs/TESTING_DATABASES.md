@@ -43,3 +43,15 @@ SIS_RESTORE_DB_DATABASE=sis_restore SIS_RESTORE_DB_USERNAME=sis_restorer SIS_RES
 يحتاج اختبار النسخ والاستعادة `mariadb-dump` و`mariadb` (حزمة `mariadb-client`). على MariaDB لا يُتخطى إذا غابت متغيرات `SIS_RESTORE_DB_*`، بل يفشل.
 
 متغيرات البيئة تتقدم على قيم `phpunit.xml`، فلا حاجة لتعديله. **لا تُستخدم بيانات حقيقية**: الاختبارات تبني بياناتها وتمسحها (`RefreshDatabase`).
+
+## B-10: إذا وجد الفحص اليومي خللاً في الـ Triggers
+
+`php artisan sis:check-triggers` يعمل كل صباح (06:00 بتوقيت بغداد). إذا غاب Trigger أو لم يرفض التعديل، يكتب الفحص `critical` في السجل، وينبّه حسابات مدير النظام داخل النظام، ويخرج برمز 1. **الفحص لا يصلح شيئاً بنفسه**، لأن الإصلاح التلقائي يخفي أن أحداً حذف الحماية.
+
+1. ابحث أولاً عن سبب الحذف.
+2. أعِد الـ Triggers يدوياً بهذا الأمر. هو لا يمس البيانات: `down()` لا يحذف إلا الـ Triggers، و`up()` يعيد إنشاءها.
+
+```bash
+php artisan migrate:refresh --path=database/migrations/2026_11_21_000000_protect_locked_final_results.php --force
+php artisan sis:check-triggers
+```

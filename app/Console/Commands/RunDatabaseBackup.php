@@ -53,7 +53,16 @@ class RunDatabaseBackup extends Command
 
     private function backup(DatabaseBackupService $backups, string $suffix = ''): int
     {
-        $result = $backups->create($suffix);
+        try {
+            $result = $backups->create($suffix);
+        } catch (\Throwable $e) {
+            // B-11: a failed backup is a failed command (the panel then refuses to migrate); the reason comes last,
+            // where the panel shows it.
+            report($e);
+            $this->error('Backup failed: '.$e->getMessage());
+
+            return self::FAILURE;
+        }
         Cache::forever('backup:last_date', now()->toDateString());
 
         $this->info("Backup created: {$backups->dir()}".DIRECTORY_SEPARATOR.$result['filename']);

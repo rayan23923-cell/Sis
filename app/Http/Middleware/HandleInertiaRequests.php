@@ -61,6 +61,7 @@ class HandleInertiaRequests extends Middleware
                 'audit' => Gate::allows('view-audit'),
                 'requests' => Gate::allows('handle-document-requests'),
                 'users' => Gate::allows('manage-users'),
+                'connectors' => Gate::allows('manage-connectors'),
                 'progression' => Gate::allows('view-progression'),
                 'reports' => Gate::allows('view-reports'),
                 'finance' => Gate::allows('view-finance'),

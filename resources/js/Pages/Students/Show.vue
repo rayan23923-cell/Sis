@@ -9,10 +9,11 @@ import OrderModal from '@/Components/OrderModal.vue';
 import CredentialsModal from '@/Components/CredentialsModal.vue';
 import InputError from '@/Components/InputError.vue';
 import EmptyState from '@/Components/EmptyState.vue';
+import LibraryClearance from '@/Components/LibraryClearance.vue';
 import { studentStatus, outcome, resultStatus, systems, roundName } from '@/lib/labels';
 import { ArrowPathIcon, BookOpenIcon, ClockIcon, DocumentTextIcon, PlusIcon, PrinterIcon, KeyIcon, BanknotesIcon } from '@heroicons/vue/24/outline';
 
-const props = defineProps({ student: Object, programs: Array, history: Array, courses: Array, statuses: Object, transitions: Array, orders: Array, orderTypes: Object, programOptions: { type: Array, default: () => [] }, documents: { type: Array, default: () => [] } });
+const props = defineProps({ student: Object, programs: Array, history: Array, courses: Array, statuses: Object, transitions: Array, orders: Array, orderTypes: Object, programOptions: { type: Array, default: () => [] }, documents: { type: Array, default: () => [] }, library: { type: Object, default: null } });
 const revoke = (d) => {
     const reason = prompt(`سبب إلغاء الوثيقة ${d.code}:`);
     if (reason) router.post(route('documents.revoke', d.id), { reason }, { preserveScroll: true });
@@ -59,6 +60,7 @@ const passedCount = computed(() => props.courses.filter((c) => c.result?.status 
                     <Badge :map="studentStatus" :value="student.status" dot />
                     <span v-if="current">{{ current.department }} · المرحلة {{ current.stage }}</span>
                     <span v-if="student.name_en" dir="ltr" class="text-xs">{{ student.name_en }}</span>
+                    <LibraryClearance :status="library" />
                 </div>
             </template>
             <a v-if="student.status === 'graduated'" :href="route('students.graduation', student.id)" target="_blank" class="btn-secondary"><PrinterIcon class="h-4 w-4" /> وثيقة التخرج PDF</a>

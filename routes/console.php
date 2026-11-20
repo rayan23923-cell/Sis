@@ -69,3 +69,21 @@ Schedule::command('sis:payments-reconcile')->everyFiveMinutes()->withoutOverlapp
 
 // Offline server: a daily backup of the database and files (does nothing unless BACKUP_DAILY is on).
 Schedule::command('backup:run')->hourly()->withoutOverlapping();
+
+// Connectors: the library sync (readers out, clearance in) every 30 minutes; a full push once a day.
+Artisan::command('sis:connectors-sync {--full : Send every student, not only the changed ones}', function () {
+    $c = \App\Models\Connector::active('library');
+    if (! $c) {
+        $this->info('The library connector is not connected.');
+
+        return;
+    }
+    try {
+        $out = app(\App\Integrations\Connectors\LibrarySync::class)->run($c, (bool) $this->option('full'));
+        $this->info('Library: '.json_encode($out));
+    } catch (\Throwable $e) {
+        $this->error('Library: '.$e->getMessage());
+    }
+})->purpose('Run the connectors\' scheduled work (library readers and clearance)');
+
+Schedule::command('sis:connectors-sync')->everyThirtyMinutes()->withoutOverlapping(60)->runInBackground();

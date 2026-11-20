@@ -1,4 +1,5 @@
 <script setup>
+import LibraryClearance from '@/Components/LibraryClearance.vue';
 import { reactive, ref, watch } from 'vue';
 import { Link, router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -9,7 +10,7 @@ import Modal from '@/Components/Modal.vue';
 import InputError from '@/Components/InputError.vue';
 import { ArrowDownTrayIcon, CheckIcon, InboxArrowDownIcon, MagnifyingGlassIcon, XMarkIcon } from '@heroicons/vue/24/outline';
 
-const props = defineProps({ rows: Object, filters: Object, types: Object, statuses: Object, counts: Number });
+const props = defineProps({ rows: Object, filters: Object, types: Object, statuses: Object, counts: Number, library: { type: Object, default: null } });
 const f = reactive({ status: props.filters.status ?? 'submitted', type: props.filters.type ?? '', q: props.filters.q ?? '' });
 const apply = () => router.get(route('requests.index'), Object.fromEntries(Object.entries(f).filter(([, v]) => v)), { preserveState: true, preserveScroll: true, replace: true });
 let t;
@@ -53,6 +54,7 @@ const tabs = ['submitted', 'ready', 'delivered', 'rejected'];
                         <div class="flex flex-wrap items-center gap-2">
                             <Link :href="route('students.show', r.student_id)" class="font-bold text-slate-800 hover:text-brand-700">{{ r.name }}</Link>
                             <span class="font-mono text-xs text-slate-400">{{ r.number }}</span>
+                            <LibraryClearance v-if="library && r.type === 'graduation'" :status="library[r.student_id] ?? { known: false }" compact />
                             <Badge :tone="tone[r.status]">{{ r.type_label }}</Badge>
                         </div>
                         <p class="mt-1 text-sm text-slate-500">{{ r.program }}<template v-if="r.stage"> · المرحلة {{ r.stage }}</template></p>

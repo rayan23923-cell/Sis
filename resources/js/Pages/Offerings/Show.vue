@@ -9,13 +9,14 @@ import OrderModal from '@/Components/OrderModal.vue';
 import OfferingManage from '@/Components/OfferingManage.vue';
 import InputError from '@/Components/InputError.vue';
 import EmptyState from '@/Components/EmptyState.vue';
+import IncomingMarks from '@/Components/IncomingMarks.vue';
 import { offeringStatus, outcome, resultStatus, roundName, systems } from '@/lib/labels';
 import {
     ArrowUturnRightIcon, CalculatorIcon, CheckBadgeIcon, CheckIcon, CloudArrowUpIcon, ExclamationTriangleIcon,
     LockClosedIcon, MagnifyingGlassIcon, PrinterIcon, ArrowDownTrayIcon, ArrowUpTrayIcon, Cog6ToothIcon, UserMinusIcon, PencilSquareIcon, PlusIcon, ArrowPathIcon, UsersIcon, InformationCircleIcon, CalendarDaysIcon,
 } from '@heroicons/vue/24/outline';
 
-const props = defineProps({ offering: Object, round: Number, components: Array, rows: Array, gradeScale: Array, official: Boolean, perm: Object, allComponents: Array, orders: Array, statuses: Object, attendance: Object, hasAttendance: Boolean });
+const props = defineProps({ offering: Object, round: Number, components: Array, rows: Array, gradeScale: Array, official: Boolean, perm: Object, allComponents: Array, orders: Array, statuses: Object, attendance: Object, hasAttendance: Boolean, incoming: { type: Array, default: () => [] } });
 const page = usePage();
 
 // ---------- editable sheet ----------
@@ -194,6 +195,8 @@ const outcomeTone = { pass: 'text-emerald-700', fail: 'text-rose-700', resit: 't
             <ExclamationTriangleIcon class="mt-0.5 h-5 w-5 shrink-0" />
             <p>النتائج تُحتسب بسياسات مؤقتة غير رسمية. ستظهر بعلامة «غير رسمية» حتى تُدخل الجامعة النص المعتمد.</p>
         </div>
+
+        <IncomingMarks :offering-id="offering.id" :batches="incoming" :dirty="dirty" />
 
         <div class="grid gap-6 xl:grid-cols-4">
             <div class="xl:col-span-3">

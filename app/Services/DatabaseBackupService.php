@@ -189,6 +189,7 @@ class DatabaseBackupService
         'online_payments' => 'الدفع الإلكتروني', 'evaluation_forms' => 'استمارات التقييم', 'evaluation_rounds' => 'فترات التقييم',
         'evaluation_submissions' => 'سجل من قيّم', 'evaluation_answers' => 'إجابات التقييم', 'notifications' => 'الإشعارات',
         'audit_logs' => 'سجل التدقيق', 'login_events' => 'سجل الدخول', 'integration_logs' => 'سجل الربط',
+        'connectors' => 'الموصلات', 'library_statuses' => 'براءة الذمة من المكتبة', 'connector_mark_batches' => 'درجات واردة من نظام الامتحانات',
     ];
 
     /**

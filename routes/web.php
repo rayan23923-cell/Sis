@@ -180,6 +180,18 @@ Route::middleware(['auth', 'active', 'password.changed', 'two-factor', 'staff'])
         Route::put('/rooms/{room}', 'updateRoom')->name('rooms.update');
     });
 
+    Route::controller(\App\Http\Controllers\ConnectorController::class)->prefix('connectors')->name('connectors.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::post('/{key}/connect', 'connect')->middleware('throttle:10,1')->name('connect');
+        Route::post('/{key}/disconnect', 'disconnect')->name('disconnect');
+        Route::put('/{key}/tools', 'tools')->name('tools');
+        Route::post('/{key}/rotate', 'rotate')->middleware('throttle:10,1')->name('rotate');
+        Route::post('/{key}/test', 'test')->middleware('throttle:10,1')->name('test');
+        Route::post('/{key}/sync', 'sync')->middleware('throttle:6,1')->name('sync');
+    });
+    Route::post('/offerings/{offering}/incoming/{batch}/apply', [OfferingController::class, 'applyIncoming'])->name('offerings.incoming.apply');
+    Route::post('/offerings/{offering}/incoming/{batch}/reject', [OfferingController::class, 'rejectIncoming'])->name('offerings.incoming.reject');
+
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
 });

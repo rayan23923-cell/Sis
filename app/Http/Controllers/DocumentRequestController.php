@@ -42,7 +42,12 @@ class DocumentRequestController extends Controller
                 'handled_at' => $r->handled_at?->timezone('Asia/Baghdad')->format('Y-m-d H:i'), 'code' => $r->document?->code,
             ]);
 
+        $library = \App\Models\Connector::active('library', 'clearance')
+            ? \App\Models\LibraryStatus::whereIn('student_id', collect($rows->items())->pluck('student_id'))->get()->keyBy('student_id')->map->summary()
+            : null;
+
         return Inertia::render('Requests/Index', [
+            'library' => $library,
             'rows' => $rows, 'filters' => ['status' => $status] + $f, 'types' => DocumentRequest::TYPES, 'statuses' => DocumentRequest::STATUSES,
             'counts' => DocumentRequest::whereIn('student_id', $visible)->where('status', 'submitted')->count(),
         ]);

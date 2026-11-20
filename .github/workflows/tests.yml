@@ -26,3 +26,51 @@ jobs:
       - run: npm ci --no-audit --no-fund && npm run build
       - run: cp .env.example .env && php artisan key:generate
       - run: php vendor/bin/phpunit
+
+  # B-05 (FR-QA-01): the whole suite again on the real database, on each server version we ship.
+  # 10.11.10 = the Windows offline bundle (offline-windows.yml MARIADB_VERSION); 11.8 = staging (deploy/vps/docker-compose.yml).
+  mariadb:
+    name: tests (MariaDB ${{ matrix.mariadb }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        mariadb: ['10.11.10', '11.8']
+    services:
+      db:
+        image: mariadb:${{ matrix.mariadb }}
+        env:
+          MARIADB_DATABASE: sis_test
+          MARIADB_USER: sis
+          MARIADB_PASSWORD: sis-ci-only
+          MARIADB_RANDOM_ROOT_PASSWORD: '1'
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    env:
+      DB_CONNECTION: mariadb
+      DB_HOST: 127.0.0.1
+      DB_PORT: '3306'
+      DB_DATABASE: sis_test
+      DB_USERNAME: sis
+      DB_PASSWORD: sis-ci-only
+      SIS_EXPECTED_DB_VERSION: ${{ matrix.mariadb }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: intl, pdo_mysql, bcmath, gd, zip
+          coverage: none
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - run: npm ci --no-audit --no-fund && npm run build
+      - run: cp .env.example .env && php artisan key:generate
+      - name: Suite on MariaDB (the mariadb group must actually run, not skip)
+        run: |
+          php vendor/bin/phpunit --log-junit junit.xml
+          php -r '$x = simplexml_load_file("junit.xml"); $s = $x->xpath("//testcase[contains(@class, \"MariaDbEnvironmentTest\")]/skipped"); if (count($s)) { fwrite(STDERR, "MariaDB checks were skipped\n"); exit(1); }'

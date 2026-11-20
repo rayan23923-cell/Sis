@@ -44,8 +44,8 @@ export const tones = {
     emerald: 'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
     rose: 'bg-rose-50 text-rose-700 ring-rose-600/20',
     amber: 'bg-amber-50 text-amber-800 ring-amber-600/25',
-    sky: 'bg-sky-50 text-sky-700 ring-sky-600/20',
-    violet: 'bg-violet-50 text-violet-700 ring-violet-600/20',
+    sky: 'bg-brand-50 text-brand-700 ring-brand-600/20',
+    violet: 'bg-brand-100 text-brand-900 ring-brand-700/25',
     slate: 'bg-slate-100 text-slate-600 ring-slate-500/20',
     brand: 'bg-brand-50 text-brand-700 ring-brand-600/20',
 };

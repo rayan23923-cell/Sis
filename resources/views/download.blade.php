@@ -6,8 +6,8 @@
     <title>تحميل التطبيقات - {{ config('sis.university_name') }}</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
-        :root { color-scheme: light dark; --bg: #f8fafc; --card: #fff; --text: #1e293b; --muted: #64748b; --border: #e2e8f0; --accent: #1f598a; }
-        @media (prefers-color-scheme: dark) { :root { --bg: #0b1220; --card: #111827; --text: #e5e7eb; --muted: #94a3b8; --border: #1f2937; --accent: #79b1d7; } }
+        :root { color-scheme: light dark; --bg: #f4f4f5; --card: #fff; --text: #1b1e21; --muted: #707579; --border: #e1e2e4; --accent: #229ed9; }
+        @media (prefers-color-scheme: dark) { :root { --bg: #17212b; --card: #232e3c; --text: #f5f5f5; --muted: #7d8b99; --border: #101921; --accent: #2aabee; } }
         * { box-sizing: border-box; }
         body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--text); font-family: Tahoma, "Segoe UI", sans-serif; padding: 32px 16px; }
         main { max-width: 640px; margin: 0 auto; }

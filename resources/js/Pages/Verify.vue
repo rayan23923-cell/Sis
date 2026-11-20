@@ -12,11 +12,11 @@ const check = () => input.value.trim() && router.get(route('verify.form'), { cod
 <template>
     <Head title="التحقق من وثيقة" />
     <div class="min-h-screen bg-slate-50">
-        <header class="bg-brand-950 text-white">
-            <div class="mx-auto flex max-w-3xl items-center gap-3 px-4 py-4">
-                <div class="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-brand-400 to-emerald-400"><BookOpenIcon class="h-6 w-6" /></div>
-                <div><p class="font-extrabold">التحقق من وثيقة</p><p class="text-xs text-brand-300">{{ $page.props.app.university }}</p></div>
-                <LocaleSwitch class="ms-auto rounded-lg px-3 py-1.5 text-sm text-brand-200 hover:bg-white/10" />
+        <header class="border-b border-slate-200 bg-white text-slate-900">
+            <div class="mx-auto flex h-14 max-w-3xl items-center gap-3 px-4">
+                <div class="grid h-9 w-9 place-items-center rounded-full bg-brand-500 text-white"><BookOpenIcon class="h-5 w-5" /></div>
+                <div><p class="font-bold leading-tight">التحقق من وثيقة</p><p class="text-xs leading-tight text-slate-500">{{ $page.props.app.university }}</p></div>
+                <LocaleSwitch class="ms-auto rounded-lg px-3 py-1.5 text-sm text-slate-500 hover:bg-slate-100" />
             </div>
         </header>
 

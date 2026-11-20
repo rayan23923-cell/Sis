@@ -48,7 +48,7 @@ const fill = (o) => Math.min(100, Math.round((o.students / Math.max(1, o.capacit
                     </div>
                     <Badge :map="offeringStatus" :value="o.status" dot />
                 </div>
-                <p class="mt-2 text-xs text-slate-500">{{ o.department }}<span v-if="o.stage"> · المرحلة {{ o.stage }}</span> · شعبة {{ o.section }}<span v-if="o.shift === 'evening'" class="font-bold text-violet-700"> · مسائية</span><span v-if="o.evaluative" class="font-bold text-rose-700"> · تقويمي</span></p>
+                <p class="mt-2 text-xs text-slate-500">{{ o.department }}<span v-if="o.stage"> · المرحلة {{ o.stage }}</span> · شعبة {{ o.section }}<span v-if="o.shift === 'evening'" class="font-bold text-brand-800"> · مسائية</span><span v-if="o.evaluative" class="font-bold text-rose-700"> · تقويمي</span></p>
                 <div class="mt-4 flex items-center gap-2 text-sm text-slate-600">
                     <UserIcon class="h-4 w-4 text-slate-400" /><span class="truncate">{{ o.teacher ?? 'لم يُحدد التدريسي' }}</span>
                     <Badge v-if="o.mine" tone="brand" class="ms-auto">مادتي</Badge>

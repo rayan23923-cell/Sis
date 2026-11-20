@@ -21,9 +21,9 @@ const PX = 56; // pixels per hour
 const height = computed(() => ((range.value.to - range.value.from) / 60) * PX);
 const fmt = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
 
-const palette = ['bg-sky-50 border-sky-300 text-sky-900', 'bg-emerald-50 border-emerald-300 text-emerald-900', 'bg-violet-50 border-violet-300 text-violet-900',
+const palette = ['bg-brand-50 border-brand-300 text-brand-900', 'bg-emerald-50 border-emerald-300 text-emerald-900', 'bg-orange-50 border-orange-300 text-orange-900',
     'bg-amber-50 border-amber-300 text-amber-900', 'bg-rose-50 border-rose-300 text-rose-900', 'bg-teal-50 border-teal-300 text-teal-900',
-    'bg-indigo-50 border-indigo-300 text-indigo-900', 'bg-lime-50 border-lime-300 text-lime-900'];
+    'bg-slate-100 border-slate-300 text-slate-800', 'bg-lime-50 border-lime-300 text-lime-900'];
 const color = (code) => palette[[...String(code)].reduce((a, c) => a + c.charCodeAt(0), 0) % palette.length];
 const style = (s) => ({ top: `${((toMin(s.starts_at) - range.value.from) / 60) * PX}px`, height: `${((toMin(s.ends_at) - toMin(s.starts_at)) / 60) * PX - 3}px` });
 const byDay = computed(() => Object.fromEntries(Object.keys(props.days).map((d) => [d, props.slots.filter((s) => String(s.day) === String(d))])));

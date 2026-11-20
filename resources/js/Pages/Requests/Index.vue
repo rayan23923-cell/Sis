@@ -33,7 +33,7 @@ const tabs = ['submitted', 'ready', 'delivered', 'rejected'];
         <div class="card mb-4 space-y-3 p-4">
             <div class="flex max-w-full gap-1 overflow-x-auto rounded-xl bg-slate-100 p-1 text-sm font-semibold sm:w-fit">
                 <button v-for="s in tabs" :key="s" type="button" class="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-4 py-1.5 transition" :class="f.status === s ? 'bg-white text-brand-800 shadow-sm' : 'text-slate-500'" @click="f.status = s">
-                    {{ statuses[s] }}<span v-if="s === 'submitted' && counts" class="rounded-full bg-amber-400 px-1.5 text-[11px] text-brand-950">{{ counts }}</span>
+                    {{ statuses[s] }}<span v-if="s === 'submitted' && counts" class="rounded-full bg-brand-600 px-1.5 text-[11px] text-white">{{ counts }}</span>
                 </button>
             </div>
             <div class="grid gap-3 sm:grid-cols-3">

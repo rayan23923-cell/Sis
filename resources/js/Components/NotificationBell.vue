@@ -33,12 +33,12 @@ onBeforeUnmount(() => document.removeEventListener('click', close));
 
 <template>
     <div class="relative" data-bell>
-        <button type="button" class="relative rounded-lg p-2 transition" :class="dark ? 'text-brand-200 hover:bg-white/10 hover:text-white' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'" :aria-label="'الإشعارات'" @click="toggle">
+        <button type="button" class="relative rounded-full p-2 transition" :class="dark ? 'text-brand-200 hover:bg-white/10 hover:text-white' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'" :aria-label="'الإشعارات'" @click="toggle">
             <BellIcon class="h-5 w-5" />
-            <span v-if="unread" class="absolute -end-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">{{ unread > 9 ? '9+' : unread }}</span>
+            <span v-if="unread" class="absolute -end-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-brand-600 px-1 text-[10px] font-bold text-white">{{ unread > 9 ? '9+' : unread }}</span>
         </button>
         <Transition enter-from-class="opacity-0 -translate-y-1" leave-to-class="opacity-0" enter-active-class="transition duration-150" leave-active-class="transition duration-100">
-            <div v-if="open" class="absolute end-0 z-50 mt-2 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-xl">
+            <div v-if="open" class="absolute end-0 z-50 mt-2 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-slate-200 bg-white text-slate-700 shadow-lg">
                 <div class="flex items-center justify-between border-b border-slate-100 px-4 py-3">
                     <p class="font-extrabold text-slate-800">الإشعارات</p>
                     <button v-if="unread" type="button" class="text-xs font-semibold text-brand-700 hover:underline" @click="readAll">تعليم الكل كمقروء</button>

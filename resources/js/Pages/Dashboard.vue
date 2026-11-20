@@ -18,7 +18,7 @@ const pipeline = computed(() => ['open', 'submitted', 'approved', 'locked'].map(
     key: k, ...offeringStatus[k], count: props.stats.byStatus[k] ?? 0,
 })));
 const pipelineTotal = computed(() => Math.max(1, pipeline.value.reduce((s, p) => s + p.count, 0)));
-const barColor = { sky: 'bg-sky-500', amber: 'bg-amber-500', violet: 'bg-violet-500', emerald: 'bg-emerald-500' };
+const barColor = { sky: 'bg-brand-500', amber: 'bg-amber-500', violet: 'bg-brand-800', emerald: 'bg-emerald-500' };
 
 const outcomes = computed(() => {
     const o = props.stats.outcomes ?? {};
@@ -30,27 +30,27 @@ const studentRows = computed(() => Object.entries(props.stats.byStudentStatus ??
 
 <template>
     <AppLayout title="لوحة المتابعة">
-        <div class="mb-6 overflow-hidden rounded-3xl rtl:bg-gradient-to-l ltr:bg-gradient-to-r from-brand-800 via-brand-900 to-brand-950 p-6 text-white shadow-lg sm:p-8">
+        <div class="card mb-6 p-5 sm:p-6">
             <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <p class="text-sm font-medium text-brand-200">{{ greeting }}،</p>
-                    <h1 class="mt-1 text-2xl font-extrabold sm:text-3xl">{{ page.props.auth.user.name }}</h1>
-                    <p class="mt-2 text-sm text-brand-200">العام الدراسي <span class="ltr">{{ year ?? '—' }}</span>
-                        <span v-for="t in terms" :key="t.id" class="ms-2 inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-0.5 text-xs font-semibold text-white">{{ t.name_ar }}</span>
+                    <p class="text-sm font-medium text-slate-500">{{ greeting }}،</p>
+                    <h1 class="mt-0.5 text-2xl font-bold text-slate-900">{{ page.props.auth.user.name }}</h1>
+                    <p class="mt-2 text-sm text-slate-500">العام الدراسي <span class="ltr">{{ year ?? '—' }}</span>
+                        <span v-for="t in terms" :key="t.id" class="ms-2 inline-flex items-center gap-1 rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-semibold text-brand-700">{{ t.name_ar }}</span>
                     </p>
                 </div>
                 <div class="flex gap-2">
-                    <Link v-if="page.props.can.admit" :href="route('students.create')" class="btn bg-white text-brand-900 hover:bg-brand-50">قبول طالب جديد</Link>
-                    <Link :href="route('offerings.index')" class="btn bg-white/10 text-white ring-1 ring-white/20 hover:bg-white/20">المواد والدرجات</Link>
+                    <Link v-if="page.props.can.admit" :href="route('students.create')" class="btn-primary">قبول طالب جديد</Link>
+                    <Link :href="route('offerings.index')" class="btn-secondary">المواد والدرجات</Link>
                 </div>
             </div>
         </div>
 
         <div class="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
             <StatCard label="الطلبة المستمرون" :value="num(stats.active)" :hint="`من أصل ${num(stats.students)} طالب`" :icon="AcademicCapIcon" />
-            <StatCard label="الشعب الدراسية" :value="num(stats.offerings)" hint="في العام الحالي" :icon="ClipboardDocumentCheckIcon" tone="violet" />
+            <StatCard label="الشعب الدراسية" :value="num(stats.offerings)" hint="في العام الحالي" :icon="ClipboardDocumentCheckIcon" />
             <StatCard label="بانتظار اللجنة" :value="num(stats.byStatus.submitted ?? 0)" hint="شعب مرفوعة للمصادقة" :icon="InboxIcon" tone="amber" />
-            <StatCard label="الكليات" :value="num(stats.colleges)" hint="ضمن صلاحياتك" :icon="BuildingLibraryIcon" tone="emerald" />
+            <StatCard label="الكليات" :value="num(stats.colleges)" hint="ضمن صلاحياتك" :icon="BuildingLibraryIcon" />
         </div>
 
         <div class="mt-6 grid gap-6 lg:grid-cols-3">

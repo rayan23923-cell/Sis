@@ -305,6 +305,7 @@ jobs:
           if (-not ($log -match 'تعذّرت النسخة الاحتياطية قبل التحديث')) { throw 'The panel log does not say why the update was not applied.' }
           $code = curl.exe -s -o NUL -w '%{http_code}' --max-time 10 http://127.0.0.1:8080/login
           if ($code -ne '000') { throw "The site answered ($code) although the system must not start." }
+          Write-Host 'Refused as it must: no migration, no start, the reason in the log.'
 
           # With a usable folder again the same start backs up first, then migrates.
           $config | Set-Content "$root\config.txt"
@@ -312,7 +313,10 @@ jobs:
           for ($i = 0; $i -lt 60 -and -not (Test-Path $marker); $i++) { Start-Sleep -Seconds 5 }
           if (-not (Test-Path $marker)) { Get-Content "$root\app\storage\logs\panel.log" -Encoding UTF8 -Tail 30; throw 'The update was not applied once the backup could be made.' }
           if (-not (Get-ChildItem C:\SisBackups\*_before-update.zip -ErrorAction SilentlyContinue)) { throw 'No backup was made before the update.' }
+          Write-Host 'With the folder fixed: backed up before the update, then migrated.'
           Start-Process -FilePath "$root\Sis.exe" -ArgumentList '--stop' -Wait
+          # curl's "could not connect" above is the expected outcome, not this step's result
+          $global:LASTEXITCODE = 0
 
   publish:
     needs: smoke-test

@@ -33,13 +33,34 @@ class AuditPolicyDatesTest extends TestCase
         parent::tearDown();
     }
 
-    private function runToLocked(): void
+    /** @param  (callable(): void)|null  $beforeLock  runs on the approved results, the last moment they can still be written (B-09) */
+    private function runToLocked(?callable $beforeLock = null): void
     {
         $o = $this->offeringA;
         $this->actingAs($this->teacherA)->post(route('offerings.marks', $o), ['rows' => $this->marksFor($o, [55, 20, 14, 17]), 'compute' => true])->assertSessionHasNoErrors();
         $this->actingAs($this->teacherA)->post(route('offerings.submit', $o))->assertSessionHas('success');
         $this->actingAs($this->committeeA)->post(route('offerings.decide', $o), ['action' => 'approve'])->assertSessionHas('success');
+        if ($beforeLock) {
+            $beforeLock();
+        }
         $this->actingAs($this->committeeA)->post(route('offerings.decide', $o), ['action' => 'lock'])->assertSessionHas('success');
+    }
+
+    /**
+     * The X-9 symptom: next year's grade scale stored in a 2025-2026 result. Written into the approved row just
+     * before the lock, as results computed before PR #2 were; once locked the database refuses the write (B-09).
+     */
+    private function lockWithNextYearsScale(): array
+    {
+        $next = $this->newScale('2026-09-01');
+        $this->runToLocked(function () use ($next) {
+            $r = FinalResult::orderBy('id')->first();
+            $snap = $r->policy_snapshot;
+            $snap['grade_scale'] = $next->toRule()->snapshot();
+            DB::table('final_results')->where('id', $r->id)->update(['policy_snapshot' => json_encode($snap)]);
+        });
+
+        return [FinalResult::orderBy('id')->first(), $next];
     }
 
     private function newScale(string $from, $approvedAt = null): AcademicPolicy
@@ -85,13 +106,8 @@ class AuditPolicyDatesTest extends TestCase
 
     public function test_a_policy_not_in_force_in_the_results_year_is_suspicious(): void
     {
-        $this->runToLocked();
-        // the X-9 symptom: next year's version stored in a 2025-2026 result (test data written directly)
-        $next = $this->newScale('2026-09-01');
-        $r = FinalResult::orderBy('id')->first();
-        $snap = $r->policy_snapshot;
-        $snap['grade_scale'] = $next->toRule()->snapshot();
-        DB::table('final_results')->where('id', $r->id)->update(['policy_snapshot' => json_encode($snap)]);
+        [$r, $next] = $this->lockWithNextYearsScale();
+        $this->assertSame('locked', $r->status);
 
         [$rows, $meta] = $this->audit();
         $this->assertCount(1, $rows);
@@ -176,12 +192,7 @@ class AuditPolicyDatesTest extends TestCase
 
     public function test_the_audit_changes_nothing(): void
     {
-        $this->runToLocked();
-        $next = $this->newScale('2026-09-01');
-        $r = FinalResult::orderBy('id')->first();
-        $snap = $r->policy_snapshot;
-        $snap['grade_scale'] = $next->toRule()->snapshot();
-        DB::table('final_results')->where('id', $r->id)->update(['policy_snapshot' => json_encode($snap)]);
+        $this->lockWithNextYearsScale();
 
         $before = $this->fingerprint();
         $this->audit(['--include-matching' => true]);

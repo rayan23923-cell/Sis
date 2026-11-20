@@ -43,7 +43,7 @@ jobs:
           MARIADB_DATABASE: sis_test
           MARIADB_USER: sis
           MARIADB_PASSWORD: sis-ci-only
-          MARIADB_RANDOM_ROOT_PASSWORD: '1'
+          MARIADB_ROOT_PASSWORD: root-ci-only
         ports: ['3306:3306']
         options: >-
           --health-cmd="healthcheck.sh --connect --innodb_initialized"
@@ -56,6 +56,10 @@ jobs:
       DB_USERNAME: sis
       DB_PASSWORD: sis-ci-only
       SIS_EXPECTED_DB_VERSION: ${{ matrix.mariadb }}
+      # B-09: a second database and an account limited to it, to restore a backup as someone other than its maker
+      SIS_RESTORE_DB_DATABASE: sis_restore
+      SIS_RESTORE_DB_USERNAME: sis_restorer
+      SIS_RESTORE_DB_PASSWORD: restorer-ci-only
     steps:
       - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2
@@ -70,6 +74,10 @@ jobs:
       - run: composer install --no-interaction --prefer-dist --no-progress
       - run: npm ci --no-audit --no-fund && npm run build
       - run: cp .env.example .env && php artisan key:generate
+      - name: MariaDB client tools (mariadb-dump, as on the servers) and the restore database
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq mariadb-client
+          mariadb -h127.0.0.1 -uroot -proot-ci-only -e "CREATE DATABASE sis_restore; CREATE USER 'sis_restorer'@'%' IDENTIFIED BY 'restorer-ci-only'; GRANT ALL ON sis_restore.* TO 'sis_restorer'@'%';"
       - name: Suite on MariaDB
         run: php vendor/bin/phpunit
       - name: MariaDB-only tests must run here, not skip

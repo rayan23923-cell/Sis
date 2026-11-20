@@ -32,8 +32,14 @@
 # قاعدة فارغة ومستخدم لها (مثال)
 mariadb -uroot -e "CREATE DATABASE sis_test; CREATE USER 'sis'@'localhost' IDENTIFIED BY 'sis'; GRANT ALL ON sis_test.* TO 'sis'@'localhost';"
 
+# B-09: قاعدة ثانية وحساب محصور بها، لاستعادة نسخة احتياطية بحساب غير الذي أنشأ الـ Triggers
+mariadb -uroot -e "CREATE DATABASE sis_restore; CREATE USER 'sis_restorer'@'localhost' IDENTIFIED BY 'restorer'; GRANT ALL ON sis_restore.* TO 'sis_restorer'@'localhost';"
+
 DB_CONNECTION=mariadb DB_HOST=127.0.0.1 DB_DATABASE=sis_test DB_USERNAME=sis DB_PASSWORD=sis \
+SIS_RESTORE_DB_DATABASE=sis_restore SIS_RESTORE_DB_USERNAME=sis_restorer SIS_RESTORE_DB_PASSWORD=restorer \
   php vendor/bin/phpunit
 ```
+
+يحتاج اختبار النسخ والاستعادة `mariadb-dump` و`mariadb` (حزمة `mariadb-client`). على MariaDB لا يُتخطى إذا غابت متغيرات `SIS_RESTORE_DB_*`، بل يفشل.
 
 متغيرات البيئة تتقدم على قيم `phpunit.xml`، فلا حاجة لتعديله. **لا تُستخدم بيانات حقيقية**: الاختبارات تبني بياناتها وتمسحها (`RefreshDatabase`).

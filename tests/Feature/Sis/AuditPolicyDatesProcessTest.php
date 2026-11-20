@@ -71,9 +71,9 @@ class AuditPolicyDatesProcessTest extends TestCase
         $g->compute($o->fresh(), $o->teacher);
         $g->submit($o->fresh(), $o->teacher);
         $g->approve($o->fresh(), $this->admin);
-        $g->lock($o->fresh(), $this->admin);
 
-        // one result stored with a version that was not in force in its year
+        // one result stored with a version that was not in force in its year, written before the lock as results
+        // computed before PR #2 were (once locked, the database refuses it: B-09)
         $cur = AcademicPolicy::where('type', 'grade_scale')->where('study_system', 'bologna')->orderByDesc('version')->firstOrFail();
         $next = AcademicPolicy::create(['type' => 'grade_scale', 'name_ar' => 'نسخة', 'version' => $cur->version + 1, 'executor' => $cur->executor,
             'parameters' => $cur->parameters, 'study_system' => 'bologna', 'scope_type' => 'university', 'effective_from' => '2026-09-01',
@@ -82,6 +82,7 @@ class AuditPolicyDatesProcessTest extends TestCase
         $snap = $r->policy_snapshot;
         $snap['grade_scale'] = $next->toRule()->snapshot();
         DB::table('final_results')->where('id', $r->id)->update(['policy_snapshot' => json_encode($snap)]);
+        $g->lock($o->fresh(), $this->admin);
 
         $fingerprint = fn () => md5(json_encode([DB::table('final_results')->orderBy('id')->get(), DB::table('academic_policies')->orderBy('id')->get()]));
         $before = $fingerprint();

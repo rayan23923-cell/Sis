@@ -89,12 +89,11 @@ class GradebookService
      */
     public function saveMarks(CourseOffering $offering, User $user, array $rows): int
     {
-        $this->requireStatus($offering, 'open', 'لا يمكن تعديل الدرجات بعد رفعها. اطلب إعادتها من اللجنة الامتحانية.');
-        $components = $this->editableComponents($offering, $offering->current_round)->keyBy('id');
-        $eligible = $this->eligible($offering, $offering->current_round)->keyBy('id');
         $saved = 0;
 
-        DB::transaction(function () use ($rows, $components, $eligible, $user, &$saved) {
+        $this->transition($offering, 'open', 'لا يمكن تعديل الدرجات بعد رفعها. اطلب إعادتها من اللجنة الامتحانية.', function (CourseOffering $offering) use ($rows, $user, &$saved) {
+            $components = $this->editableComponents($offering, $offering->current_round)->keyBy('id');
+            $eligible = $this->eligible($offering, $offering->current_round)->keyBy('id');
             foreach ($rows as $enrollmentId => $values) {
                 if (! $eligible->has((int) $enrollmentId)) {
                     continue;
@@ -130,14 +129,13 @@ class GradebookService
      */
     public function compute(CourseOffering $offering, User $user): array
     {
-        $this->requireStatus($offering, 'open', 'الاحتساب متاح فقط والمادة مفتوحة لإدخال الدرجات.');
-        $round = $offering->current_round;
-        $components = $this->componentsForRound($offering, $round);
-        $credits = (float) $offering->course->credit_hours;
         $computed = 0;
         $problems = [];
 
-        DB::transaction(function () use ($offering, $user, $round, $components, $credits, &$computed, &$problems) {
+        $this->transition($offering, 'open', 'الاحتساب متاح فقط والمادة مفتوحة لإدخال الدرجات.', function (CourseOffering $offering) use ($user, &$computed, &$problems) {
+            $round = $offering->current_round;
+            $components = $this->componentsForRound($offering, $round);
+            $credits = (float) $offering->course->credit_hours;
             foreach ($this->eligible($offering, $round) as $enrollment) {
                 try {
                     $this->computeOne($enrollment, $round, $components, $credits, $user);
@@ -153,25 +151,25 @@ class GradebookService
 
     public function submit(CourseOffering $offering, User $user): void
     {
-        $this->requireStatus($offering, 'open', 'المادة ليست في مرحلة إدخال الدرجات.');
-        $round = $offering->current_round;
-        $missing = $this->eligible($offering, $round)->filter(fn (Enrollment $e) => ! $this->draftFor($e, $round));
-        if ($missing->isNotEmpty()) {
-            throw new WorkflowException('لم تُحتسب نتائج '.$missing->count().' طالب بعد. أكمل الدرجات ثم اضغط «احتساب النتائج».');
-        }
-        AuditContext::as($user->id, 'رفع النتائج إلى اللجنة الامتحانية', fn () => $offering->update(['status' => 'submitted']));
+        $this->transition($offering, 'open', 'المادة ليست في مرحلة إدخال الدرجات.', function (CourseOffering $offering) use ($user) {
+            $round = $offering->current_round;
+            $missing = $this->eligible($offering, $round)->filter(fn (Enrollment $e) => ! $this->draftFor($e, $round));
+            if ($missing->isNotEmpty()) {
+                throw new WorkflowException('لم تُحتسب نتائج '.$missing->count().' طالب بعد. أكمل الدرجات ثم اضغط «احتساب النتائج».');
+            }
+            AuditContext::as($user->id, 'رفع النتائج إلى اللجنة الامتحانية', fn () => $offering->update(['status' => 'submitted']));
+        });
     }
 
     public function returnToTeacher(CourseOffering $offering, User $user, string $reason): void
     {
-        $this->requireStatus($offering, 'submitted', 'لا يمكن إعادة مادة لم تُرفع.');
-        AuditContext::as($user->id, $reason, fn () => $offering->update(['status' => 'open']));
+        $this->transition($offering, 'submitted', 'لا يمكن إعادة مادة لم تُرفع.',
+            fn (CourseOffering $offering) => AuditContext::as($user->id, $reason, fn () => $offering->update(['status' => 'open'])));
     }
 
     public function approve(CourseOffering $offering, User $user): void
     {
-        $this->requireStatus($offering, 'submitted', 'المصادقة متاحة بعد رفع النتائج فقط.');
-        DB::transaction(fn () => AuditContext::as($user->id, 'مصادقة اللجنة الامتحانية', function () use ($offering, $user) {
+        $this->transition($offering, 'submitted', 'المصادقة متاحة بعد رفع النتائج فقط.', fn (CourseOffering $offering) => AuditContext::as($user->id, 'مصادقة اللجنة الامتحانية', function () use ($offering, $user) {
             $this->roundResults($offering)->where('status', 'draft')->each(fn (FinalResult $r) => $r->update([
                 'status' => 'approved', 'approved_by' => $user->id, 'approved_at' => now(),
             ]));
@@ -181,8 +179,7 @@ class GradebookService
 
     public function lock(CourseOffering $offering, User $user): void
     {
-        $this->requireStatus($offering, 'approved', 'القفل متاح بعد المصادقة فقط.');
-        DB::transaction(fn () => AuditContext::as($user->id, 'قفل النتائج', function () use ($offering) {
+        $this->transition($offering, 'approved', 'القفل متاح بعد المصادقة فقط.', fn (CourseOffering $offering) => AuditContext::as($user->id, 'قفل النتائج', function () use ($offering) {
             foreach ($this->roundResults($offering)->where('status', 'approved') as $r) {
                 $r->update(['status' => 'locked', 'locked_at' => now()]);
                 if ($r->outcome !== 'resit') {
@@ -215,12 +212,15 @@ class GradebookService
 
     public function openNextRound(CourseOffering $offering, User $user): void
     {
-        if (! $this->canOpenNextRound($offering)) {
-            throw new WorkflowException('لا يوجد طلبة مؤهلون للدور التالي، أو لم تُقفل نتائج الدور الحالي بعد.');
-        }
-        AuditContext::as($user->id, 'فتح الدور الامتحاني التالي', fn () => $offering->update([
-            'current_round' => $offering->current_round + 1, 'status' => 'open',
-        ]));
+        $refused = 'لا يوجد طلبة مؤهلون للدور التالي، أو لم تُقفل نتائج الدور الحالي بعد.';
+        $this->transition($offering, 'locked', $refused, function (CourseOffering $offering) use ($user, $refused) {
+            if (! $this->canOpenNextRound($offering)) {
+                throw new WorkflowException($refused);
+            }
+            AuditContext::as($user->id, 'فتح الدور الامتحاني التالي', fn () => $offering->update([
+                'current_round' => $offering->current_round + 1, 'status' => 'open',
+            ]));
+        });
     }
 
     /**
@@ -238,6 +238,11 @@ class GradebookService
         }
 
         return DB::transaction(fn () => AuditContext::as($user->id, $reason.' — '.$order->reference(), function () use ($result, $marks, $order, $user) {
+            // B-07: re-read the result under a row lock; of two simultaneous corrections only the first finds it current
+            $result = FinalResult::whereKey($result->id)->lockForUpdate()->firstOrFail();
+            if ($result->status !== 'locked' || ! $result->is_current) {
+                throw new WorkflowException('التصحيح يكون على النتيجة المقفلة الحالية فقط.');
+            }
             $enrollment = $result->enrollment()->with(['studentProgram.program.department', 'offering.course', 'marks'])->first();
             $offering = $enrollment->offering;
             $components = $this->componentsForRound($offering, $result->exam_round)->keyBy('id');
@@ -374,11 +379,27 @@ class GradebookService
             ->where('exam_round', $offering->current_round)->where('is_current', true)->with('enrollment')->get();
     }
 
-    private function requireStatus(CourseOffering $offering, string $status, string $message): void
+    /**
+     * B-07 (FR-CC-03): every status change of an offering runs in one transaction that first re-reads the offering
+     * under a row lock and checks its status there. Two people pressing the same button at once: the second waits,
+     * then sees the new status and is refused. The caller's model is refreshed to the locked row.
+     *
+     * @template T
+     *
+     * @param  callable(CourseOffering): T  $fn
+     * @return T
+     */
+    private function transition(CourseOffering $offering, string $status, string $message, callable $fn): mixed
     {
-        if ($offering->status !== $status) {
-            throw new WorkflowException($message);
-        }
+        return DB::transaction(function () use ($offering, $status, $message, $fn) {
+            $locked = CourseOffering::whereKey($offering->id)->lockForUpdate()->firstOrFail();
+            $offering->setRawAttributes($locked->getAttributes(), true);
+            if ($offering->status !== $status) {
+                throw new WorkflowException($message);
+            }
+
+            return $fn($offering);
+        });
     }
 
     private function explain(string $engineMessage, ?Collection $components = null): string

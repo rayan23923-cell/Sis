@@ -70,7 +70,7 @@ jobs:
       - run: composer install --no-interaction --prefer-dist --no-progress
       - run: npm ci --no-audit --no-fund && npm run build
       - run: cp .env.example .env && php artisan key:generate
-      - name: Suite on MariaDB (the mariadb group must actually run, not skip)
-        run: |
-          php vendor/bin/phpunit --log-junit junit.xml
-          php -r '$x = simplexml_load_file("junit.xml"); $s = $x->xpath("//testcase[contains(@class, \"MariaDbEnvironmentTest\")]/skipped"); if (count($s)) { fwrite(STDERR, "MariaDB checks were skipped\n"); exit(1); }'
+      - name: Suite on MariaDB
+        run: php vendor/bin/phpunit
+      - name: MariaDB-only tests must run here, not skip
+        run: php vendor/bin/phpunit --group mariadb --fail-on-skipped

@@ -22,9 +22,12 @@ class PolicyResolver
     /** @var array<string, PolicySet> */
     private array $cache = [];
 
-    public function forProgram(Program $program, ?Carbon $on = null): PolicySet
+    /**
+     * The date is required (FR-AR-18): a result, attendance figure or decision uses the policies of its own
+     * academic year (`CourseOffering::policyDate()` or the year's `ends_on`), never "today".
+     */
+    public function forProgram(Program $program, Carbon $on): PolicySet
     {
-        $on ??= now();
         $key = $program->id.'@'.$on->toDateString();
 
         return $this->cache[$key] ??= new PolicySet($this->candidates($program, $on)
@@ -32,9 +35,9 @@ class PolicyResolver
     }
 
     /** The policy of one type that applies to a program, or null. */
-    public function one(Program $program, string $type, ?Carbon $on = null): ?Policy
+    public function one(Program $program, string $type, Carbon $on): ?Policy
     {
-        return $this->candidates($program, $on ?? now())->firstWhere('type', $type)?->toRule();
+        return $this->candidates($program, $on)->firstWhere('type', $type)?->toRule();
     }
 
     /** @return Collection<int, AcademicPolicy> one policy per type */

@@ -8,7 +8,6 @@ use App\Models\AdministrativeOrder;
 use App\Models\AuditLog;
 use App\Models\FinalResult;
 use App\Services\GradebookService;
-use App\Services\PolicyResolver;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use LogicException;
 use Tests\TestCase;
@@ -99,10 +98,6 @@ class GradingWorkflowTest extends TestCase
             'F' => ['max' => 39] + $b,
             default => $b,
         })->all();
-
-        // a new request would get fresh services; drop the ones that cached the earlier policies
-        $this->app->forgetInstance(PolicyResolver::class);
-        $this->app->forgetInstance(GradebookService::class);
 
         return AcademicPolicy::create([
             'type' => 'grade_scale', 'name_ar' => 'سلم أوسع للمعالجة', 'version' => $current->version + 1,

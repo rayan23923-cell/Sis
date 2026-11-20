@@ -3,6 +3,7 @@
 namespace Tests\Feature\Infra;
 
 use App\Models\AcademicYear;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\Group;
@@ -43,7 +44,7 @@ class MariaDbEnvironmentTest extends TestCase
         $this->assertStringContainsString('STRICT_TRANS_TABLES', $mode);
 
         // a value too long for its column must fail, not be cut silently
-        $this->expectException(\Illuminate\Database\QueryException::class);
+        $this->expectException(QueryException::class);
         AcademicYear::create(['name' => str_repeat('x', 500), 'starts_on' => '2025-09-01', 'ends_on' => '2026-08-31']);
     }
 

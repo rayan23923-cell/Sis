@@ -185,7 +185,7 @@ class AttendanceService
     public function policyInfo(CourseOffering $offering): ?array
     {
         $program = $this->programOf($offering);
-        $policy = $program ? $this->policies->one($program, 'attendance') : null;
+        $policy = $program ? $this->policies->one($program, 'attendance', $offering->policyDate()) : null;
         if (! $policy) {
             return null;
         }
@@ -212,7 +212,7 @@ class AttendanceService
         return $rule ? $rule->absenceHours($status, $hours) : ($status === 'absent' ? $hours : 0.0);
     }
 
-    /** @var array<int, ?Attendance> */
+    /** @var array<string, ?Attendance> keyed by program and policy date */
     private array $rules = [];
 
     private function ruleFor(CourseOffering $offering): ?Attendance
@@ -221,12 +221,15 @@ class AttendanceService
         if (! $program) {
             return null;
         }
-        if (! array_key_exists($program->id, $this->rules)) {
-            $policy = $this->policies->one($program, 'attendance');
-            $this->rules[$program->id] = $policy ? new Attendance($policy) : null;
+        // the attendance policy of the offering's own year, never today's (B-01, FR-AR-18): the same date its results use
+        $on = $offering->policyDate();
+        $key = $program->id.'@'.$on->toDateString();
+        if (! array_key_exists($key, $this->rules)) {
+            $policy = $this->policies->one($program, 'attendance', $on);
+            $this->rules[$key] = $policy ? new Attendance($policy) : null;
         }
 
-        return $this->rules[$program->id];
+        return $this->rules[$key];
     }
 
     private function programOf(CourseOffering $offering): ?Program

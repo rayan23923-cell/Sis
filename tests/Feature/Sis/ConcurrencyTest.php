@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Sis;
 
+use App\AcademicRules\CourseResultCalculator;
+use App\AcademicRules\Data\ComponentMark;
 use App\Models\AcademicYear;
 use App\Models\AdministrativeOrder;
 use App\Models\AuditLog;
@@ -191,5 +193,67 @@ class ConcurrencyTest extends TestCase
         $versions = FinalResult::where('enrollment_id', $result->enrollment_id)->where('exam_round', $result->exam_round)->get();
         $this->assertCount(2, $versions);
         $this->assertSame(1, $versions->where('is_current', true)->count(), 'exactly one current version');
+    }
+
+    /** F-G3-1 under concurrency: ten simultaneous submissions submit once, with one audit row. */
+    public function test_ten_simultaneous_submissions_submit_once(): void
+    {
+        $o = $this->offeringA;
+        $g = app(GradebookService::class);
+        $c = $o->components()->where('exam_round', 1)->get()->keyBy('code');
+        $g->saveMarks($o, $o->teacher, collect($o->enrollments()->pluck('id'))->mapWithKeys(fn ($id) => [$id => [$c['coursework']->id => ['mark' => 30], $c['final']->id => ['mark' => 40]]])->all());
+        $g->compute($o->fresh(), $o->teacher);
+        $before = AuditLog::where('auditable_type', CourseOffering::class)->count();
+
+        $out = $this->race(array_fill(0, 10, ['submit', $o->id, $o->teacher->id]));
+
+        $this->assertSame(1, $this->wins($out));
+        $this->assertCleanRefusals($out);
+        $this->assertSame('submitted', $o->fresh()->status);
+        $this->assertSame($before + 1, AuditLog::where('auditable_type', CourseOffering::class)->count());
+    }
+
+    /**
+     * F-G3-1 under concurrency: marks saved while others press submit. Whatever the order, an offering that ends up
+     * submitted has drafts that match its marks: a save that got in first makes the submit refuse; a submit that got
+     * in first makes the saves refuse. Three rounds, so both orders occur.
+     */
+    public function test_marks_saved_during_submission_never_let_a_stale_draft_through(): void
+    {
+        $o = $this->offeringA;
+        $g = app(GradebookService::class);
+        $c = $o->components()->where('exam_round', 1)->get()->keyBy('code');
+        $ids = $o->enrollments()->orderBy('id')->pluck('id')->all();
+        $g->saveMarks($o, $o->teacher, collect($ids)->mapWithKeys(fn ($id) => [$id => [$c['coursework']->id => ['mark' => 30], $c['final']->id => ['mark' => 40]]])->all());
+        $outcomes = [];
+
+        foreach ([0, 1, 2] as $round) {
+            $o->refresh();
+            if ($o->status === 'submitted') {
+                $g->returnToTeacher($o, $this->committeeA, 'جولة اختبار');
+            }
+            $g->compute($o->fresh(), $o->teacher);
+            $competitors = [];
+            foreach ($ids as $k => $id) {
+                $competitors[] = ['save', $o->id, $o->teacher->id, $id, $c['final']->id, 41 + $round * 5 + $k];
+                $competitors[] = ['submit', $o->id, $o->teacher->id];
+            }
+            $out = $this->race($competitors);
+            $this->assertCleanRefusals($out);
+            $o->refresh();
+            $outcomes[] = $o->status;
+            if ($o->status === 'submitted') {
+                $components = $g->componentsForRound($o, 1);
+                foreach ($o->enrollments()->with('marks')->get() as $e) {
+                    $marks = $e->marks->keyBy('assessment_component_id');
+                    $hash = CourseResultCalculator::hash($components->map(fn ($c) => new ComponentMark(
+                        $c->code, (float) $c->weight, (float) $c->max_mark, $marks->get($c->id)?->mark, (bool) $marks->get($c->id)?->is_absent,
+                    ))->all(), (float) $o->course->credit_hours);
+                    $draft = FinalResult::where('enrollment_id', $e->id)->where('is_current', true)->firstOrFail();
+                    $this->assertSame($hash, $draft->input_hash, 'round '.$round.': a submitted draft does not match the marks of enrollment '.$e->id);
+                }
+            }
+        }
+        fwrite(STDERR, '[F-G3-1 race] statuses after each round: '.implode(', ', $outcomes)."\n");
     }
 }

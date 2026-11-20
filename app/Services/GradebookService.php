@@ -152,10 +152,15 @@ class GradebookService
     public function submit(CourseOffering $offering, User $user): void
     {
         $this->transition($offering, 'open', 'المادة ليست في مرحلة إدخال الدرجات.', function (CourseOffering $offering) use ($user) {
-            $round = $offering->current_round;
-            $missing = $this->eligible($offering, $round)->filter(fn (Enrollment $e) => ! $this->draftFor($e, $round));
-            if ($missing->isNotEmpty()) {
-                throw new WorkflowException('لم تُحتسب نتائج '.$missing->count().' طالب بعد. أكمل الدرجات ثم اضغط «احتساب النتائج».');
+            $check = $this->draftCheck($offering);
+            if ($check['missing'] > 0) {
+                throw new WorkflowException('لم تُحتسب نتائج '.$check['missing'].' طالب بعد. أكمل الدرجات ثم اضغط «احتساب النتائج».');
+            }
+            if ($check['stale'] > 0) {
+                throw new WorkflowException('تغيرت درجات '.$check['stale'].' طالب أو السياسات المعتمدة بعد آخر احتساب. اضغط «احتساب النتائج» ثم ارفع.');
+            }
+            if ($check['orphans'] > 0) {
+                throw new WorkflowException('توجد نتائج محتسبة لـ'.$check['orphans'].' طالب لم يعودوا مؤهلين لهذا الدور. راجع إدارة النظام.');
             }
             AuditContext::as($user->id, 'رفع النتائج إلى اللجنة الامتحانية', fn () => $offering->update(['status' => 'submitted']));
         });
@@ -170,6 +175,12 @@ class GradebookService
     public function approve(CourseOffering $offering, User $user): void
     {
         $this->transition($offering, 'submitted', 'المصادقة متاحة بعد رفع النتائج فقط.', fn (CourseOffering $offering) => AuditContext::as($user->id, 'مصادقة اللجنة الامتحانية', function () use ($offering, $user) {
+            // F-G3-1: the committee approves what the gradebook gives now. A policy approved or a course changed
+            // since the submission makes the drafts stale: return them to the teacher to compute again.
+            $check = $this->draftCheck($offering);
+            if (array_sum($check) > 0) {
+                throw new WorkflowException('النتائج المرفوعة لم تعد تطابق الدرجات أو السياسات المعتمدة ('.array_sum($check).' طالب). أعدها إلى التدريسي لإعادة الاحتساب.');
+            }
             $this->roundResults($offering)->where('status', 'draft')->each(fn (FinalResult $r) => $r->update([
                 'status' => 'approved', 'approved_by' => $user->id, 'approved_at' => now(),
             ]));
@@ -242,6 +253,12 @@ class GradebookService
             $result = FinalResult::whereKey($result->id)->lockForUpdate()->firstOrFail();
             if ($result->status !== 'locked' || ! $result->is_current) {
                 throw new WorkflowException('التصحيح يكون على النتيجة المقفلة الحالية فقط.');
+            }
+            // F-G3-1: a later round still in progress was computed from this result's marks and outcome; correcting
+            // under it would leave that round's draft or approved result built on the old values
+            if (FinalResult::where('enrollment_id', $result->enrollment_id)->where('exam_round', '>', $result->exam_round)
+                ->where('is_current', true)->where('status', '!=', 'locked')->exists()) {
+                throw new WorkflowException('للطالب نتيجة في دور لاحق لم تُقفل بعد. صحّح بعد قفل ذلك الدور.');
             }
             $enrollment = $result->enrollment()->with(['studentProgram.program.department', 'offering.course', 'marks'])->first();
             $offering = $enrollment->offering;
@@ -366,6 +383,48 @@ class GradebookService
             'policy_snapshot' => $snapshot,
             'input_hash' => $r->inputHash,
         ];
+    }
+
+    /**
+     * F-G3-1: is every draft of the current round still what the gradebook gives now? Re-derives each eligible
+     * student's input hash and policy snapshot and compares them with the stored draft. Runs inside a transition,
+     * under the offering's row lock, so marks cannot change between this check and the status change.
+     *
+     * @return array{missing: int, stale: int, orphans: int}
+     */
+    private function draftCheck(CourseOffering $offering): array
+    {
+        $round = $offering->current_round;
+        $eligible = $this->eligible($offering, $round);
+        $components = $this->componentsForRound($offering, $round);
+        $credits = (float) $offering->course->credit_hours;
+        $drafts = $this->roundResults($offering)->where('status', 'draft')->keyBy('enrollment_id');
+        // policies are read here, under the lock, never from a resolver cache that may predate a newer approval
+        $resolver = new PolicyResolver;
+        $missing = $stale = 0;
+        foreach ($eligible as $e) {
+            $draft = $drafts->get($e->id);
+            if (! $draft) {
+                $missing++;
+
+                continue;
+            }
+            try {
+                $now = $this->resultData($e, $round, $components, $credits,
+                    $resolver->forProgram($e->studentProgram->program, $e->offering->policyDate()));
+            } catch (RulesException) {
+                $stale++; // an input was cleared or removed: the draft no longer has a result behind it
+
+                continue;
+            }
+            if ($draft->input_hash !== $now['input_hash'] || $draft->policy_snapshot != $now['policy_snapshot']) {
+                $stale++;
+            }
+        }
+        // a draft of someone who no longer sits this round (e.g. a corrected earlier round) must not be approved
+        $orphans = $drafts->keys()->diff($eligible->pluck('id'))->count();
+
+        return ['missing' => $missing, 'stale' => $stale, 'orphans' => $orphans];
     }
 
     private function draftFor(Enrollment $enrollment, int $round): ?FinalResult

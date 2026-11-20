@@ -270,8 +270,8 @@ jobs:
           if ($page.Content -notmatch '[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}') { throw 'The activation page does not show the machine id.' }
           & "$root\php\php.exe" -r "exit(function_exists('sodium_crypto_sign_verify_detached') ? 0 : 1);"
           if ($LASTEXITCODE -ne 0) { throw 'sodium is missing from the bundled PHP.' }
-          # Activation calls the licensing server over HTTPS; this fails without a CA list.
-          & "$root\php\php.exe" -c "$root\php\php.ini" -r "`$c = curl_init('https://dental.azoclinic.duckdns.org/up'); curl_setopt(`$c, CURLOPT_RETURNTRANSFER, true); curl_setopt(`$c, CURLOPT_NOBODY, true); curl_exec(`$c); `$e = curl_error(`$c); echo `$e; exit(`$e === '' ? 0 : 1);"
+          # Activation calls the licensing server over HTTPS; this fails without a CA list. Checked against github.com so the job does not depend on the licensing server being up.
+          & "$root\php\php.exe" -c "$root\php\php.ini" -r "`$c = curl_init('https://github.com'); curl_setopt(`$c, CURLOPT_RETURNTRANSFER, true); curl_setopt(`$c, CURLOPT_NOBODY, true); curl_exec(`$c); `$e = curl_error(`$c); echo `$e; exit(`$e === '' ? 0 : 1);"
           if ($LASTEXITCODE -ne 0) { throw 'The bundled PHP cannot make HTTPS calls (activation would fail).' }
           Start-Process -FilePath "$root\Sis.exe" -ArgumentList '--stop' -Wait
 

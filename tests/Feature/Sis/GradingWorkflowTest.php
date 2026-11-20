@@ -2,10 +2,13 @@
 
 namespace Tests\Feature\Sis;
 
+use App\AcademicRules\PolicySet;
+use App\Models\AcademicPolicy;
 use App\Models\AdministrativeOrder;
 use App\Models\AuditLog;
 use App\Models\FinalResult;
 use App\Services\GradebookService;
+use App\Services\PolicyResolver;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use LogicException;
 use Tests\TestCase;
@@ -85,6 +88,72 @@ class GradingWorkflowTest extends TestCase
         $this->assertSame($order->id, $new->administrative_order_id);
         $this->assertSame('locked', $new->status);
         $this->assertTrue(AuditLog::where('auditable_type', FinalResult::class)->where('reason', 'like', 'خطأ في الجمع%')->exists());
+    }
+
+    /** A grade scale for Bologna in which 40–49 is FX (resit), so 44 would no longer be a plain fail. */
+    private function widerResitScale(string $from): AcademicPolicy
+    {
+        $current = AcademicPolicy::where('type', 'grade_scale')->where('study_system', 'bologna')->firstOrFail();
+        $bands = collect($current->parameters['bands'])->map(fn ($b) => match ($b['code']) {
+            'FX' => ['min' => 40] + $b,
+            'F' => ['max' => 39] + $b,
+            default => $b,
+        })->all();
+
+        // a new request would get fresh services; drop the ones that cached the earlier policies
+        $this->app->forgetInstance(PolicyResolver::class);
+        $this->app->forgetInstance(GradebookService::class);
+
+        return AcademicPolicy::create([
+            'type' => 'grade_scale', 'name_ar' => 'سلم أوسع للمعالجة', 'version' => $current->version + 1,
+            'executor' => $current->executor, 'parameters' => ['bands' => $bands] + $current->parameters,
+            'study_system' => 'bologna', 'scope_type' => 'university', 'effective_from' => $from,
+            'is_official' => false, 'status' => 'approved', 'approved_at' => now(),
+        ]);
+    }
+
+    public function test_results_use_the_policies_of_the_offerings_year_not_today(): void
+    {
+        // the fixture year is 2025-2026 (ends 2026-08-31); this version only starts the year after
+        $this->widerResitScale('2026-09-01');
+        $this->runToLocked([55, 20, 14, 17]);
+
+        $r = FinalResult::orderBy('enrollment_id')->skip(2)->first(); // 30 + 14 = 44
+        $this->assertSame('fail', $r->outcome);
+        $this->assertSame(1, $r->policy_snapshot['grade_scale']['version']);
+    }
+
+    public function test_correction_keeps_the_policies_of_the_corrected_result(): void
+    {
+        $this->runToLocked([55, 20, 14, 17]);
+        // a new scale approved afterwards, effective for the same year
+        $this->widerResitScale('2025-09-01');
+        $old = FinalResult::orderBy('enrollment_id')->skip(2)->first(); // 44, fail
+        $final = $this->offeringA->components()->where('code', 'final')->first();
+        $order = AdministrativeOrder::create(['number' => '78', 'issued_on' => now()->toDateString(), 'type' => 'result_correction', 'title' => 'تصحيح', 'issued_by_authority' => 'العمادة']);
+
+        $this->actingAs($this->committeeA)->post(route('offerings.correct', [$this->offeringA, $old]), [
+            'order_id' => $order->id, 'reason' => 'خطأ في الجمع', 'marks' => [$final->id => ['mark' => 12]],
+        ])->assertSessionHas('success');
+
+        $new = FinalResult::where('supersedes_id', $old->id)->firstOrFail();
+        $this->assertSame(42.0, $new->rounded_mark);
+        $this->assertSame('fail', $new->outcome, 'the new scale would make 42 a resit; the correction must not change the rules');
+        $this->assertSame($old->policy_snapshot['grade_scale'], $new->policy_snapshot['grade_scale']);
+    }
+
+    public function test_policy_set_is_rebuilt_from_a_result_snapshot(): void
+    {
+        $this->runToLocked([55, 20, 14, 17]);
+        $snapshot = FinalResult::first()->policy_snapshot;
+        $snapshot['evaluative'] = ['final' => 30.0, 'threshold' => 20.0, 'decision' => null];
+
+        $set = PolicySet::fromResultSnapshot($snapshot);
+        foreach (['grade_scale', 'rounding', 'total', 'rounds'] as $type) {
+            $this->assertSame($snapshot[$type], $set->get($type)->snapshot());
+        }
+        $this->assertFalse($set->has('evaluative'));
+        $this->assertFalse($set->has('decision'));
     }
 
     public function test_second_round_only_for_resit_students(): void

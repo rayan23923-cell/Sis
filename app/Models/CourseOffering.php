@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
 class CourseOffering extends Model
 {
@@ -33,6 +34,18 @@ class CourseOffering extends Model
     public function course(): BelongsTo
     {
         return $this->belongsTo(Course::class);
+    }
+
+    /**
+     * The date academic policies are resolved on for this offering's results: the end of its academic
+     * year, the same date progression, the master sheet and transcripts use. Never "today", so computing
+     * a past year's result later still applies that year's policies (FR-AR-18).
+     */
+    public function policyDate(): Carbon
+    {
+        $this->loadMissing('term.year');
+
+        return $this->term->year->ends_on->copy();
     }
 
     public function term(): BelongsTo

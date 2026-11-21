@@ -69,3 +69,6 @@ Schedule::command('sis:payments-reconcile')->everyFiveMinutes()->withoutOverlapp
 
 // Offline server: a daily backup of the database and files (does nothing unless BACKUP_DAILY is on).
 Schedule::command('backup:run')->hourly()->withoutOverlapping();
+
+// B-10 (FR-SEC-19): every morning, the triggers that protect locked results are there and still refuse.
+Schedule::command('sis:check-triggers')->dailyAt('06:00')->timezone('Asia/Baghdad');

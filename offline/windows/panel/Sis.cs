@@ -599,10 +599,14 @@ namespace SisPanel
                 // as it was before they run (the command skips otherwise).
                 // The settings cached by the previous version may predate
                 // the backup settings, so they are dropped first.
+                // B-11 (FR-REL-08): no copy, no update. The migrations do not
+                // run and the system does not start; after an update from the
+                // panel this sends it back to the previous version.
                 Artisan("config:clear", 120000, false);
                 var b = RunArtisan("backup:run --before-update", 1800000);
-                if (b.Code != 0) Log("تنبيه: تعذّرت النسخة الاحتياطية قبل التحديث. التفاصيل في artisan.log");
-                else if (b.Output.Contains("Backup created")) Log("حُفظت نسخة احتياطية قبل التحديث في " + BackupDir);
+                if (b.Code != 0)
+                    throw new Exception("تعذّرت النسخة الاحتياطية قبل التحديث، فلم يُطبَّق التحديث ولم يبدأ النظام. تحقّق من مجلد النسخ ومساحة القرص ثم أعد التشغيل. " + Tail(b.Output, 3));
+                if (b.Output.Contains("Backup created")) Log("حُفظت نسخة احتياطية قبل التحديث في " + BackupDir);
             }
             Log("تحديث جداول قاعدة البيانات...");
             Artisan("migrate --force", 900000, true);
@@ -1346,24 +1350,26 @@ namespace SisPanel
         }
 
         // In the old version again: the data goes back to how it was.
-        public void AfterRollback()
+        // B-11 (D-G5-4): false, and said so, when that restore failed.
+        public bool AfterRollback()
         {
+            bool restored = true;
             string note = Path.Combine(RollbackDir, "backup.txt");
             if (File.Exists(note))
             {
                 string backup = File.ReadAllText(note).Trim();
-                if (File.Exists(backup))
-                {
-                    string msg;
-                    engine.RestoreBackup(backup, out msg);
-                }
+                string msg;
+                restored = File.Exists(backup) && engine.RestoreBackup(backup, out msg);
+                if (!restored)
+                    engine.Log("فشلت استعادة البيانات بعد تعذّر التحديث. النسخة محفوظة في: " + backup);
             }
-            engine.Log("تعذّر التحديث، فرجع النظام للنسخة السابقة كما كان.");
+            if (restored) engine.Log("تعذّر التحديث، فرجع النظام للنسخة السابقة كما كان.");
             RemoveJunctions(RollbackDir);
             DeleteDir(RollbackDir);
             string failed = Path.Combine(Dir, "failed");
             RemoveJunctions(failed);
             try { DeleteDir(failed); } catch { }
+            return restored;
         }
 
         public int FailedBuild { get { return ReadBuild(Path.Combine(Dir, "failed-build.txt")); } }
@@ -2019,8 +2025,11 @@ namespace SisPanel
             {
                 StartSystem(started =>
                 {
-                    if (started) updater.AfterRollback();
-                    try { BeginInvoke(new Action(() => Notify("تعذّر تشغيل النسخة الجديدة، فرجع النظام تلقائيًا للنسخة السابقة وبياناتها كما كانت.", false))); } catch { }
+                    bool restored = !started || updater.AfterRollback();
+                    string text = restored
+                        ? "تعذّر تشغيل النسخة الجديدة، فرجع النظام تلقائيًا للنسخة السابقة وبياناتها كما كانت."
+                        : "تعذّر تشغيل النسخة الجديدة فرجع البرنامج للنسخة السابقة، لكن استعادة البيانات فشلت. التفاصيل في السجل.";
+                    try { BeginInvoke(new Action(() => Notify(text, false))); } catch { }
                 });
             }
             else if (autostart || settings.AutoStartServices) StartSystem();

@@ -14,4 +14,8 @@ return [
     'keep' => (int) env('BACKUP_KEEP', 30),
 
     'daily' => (bool) env('BACKUP_DAILY', false),
+
+    // The dump and client programs tried in order; empty means the built-in list (MariaDB's, XAMPP's, MySQL's).
+    // Tests point these at nothing to exercise the PHP fallback (B-10).
+    'tools' => ['dump' => [], 'client' => []],
 ];

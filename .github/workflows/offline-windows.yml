@@ -284,6 +284,40 @@ jobs:
           $global:LASTEXITCODE = 0
           Start-Process -FilePath "$root\Sis.exe" -ArgumentList '--stop' -Wait
 
+      - name: An update whose backup fails is not applied (B-11)
+        shell: pwsh
+        run: |
+          $root = 'C:\SisOffline'
+          $marker = "$root\app\storage\app\b11-migrated.txt"
+          # A new version with one migration to run, and a backups "folder" that is a file, so no backup can be made.
+          $migration = "$root\app\database\migrations\2099_01_01_000000_b11_ci_pending.php"
+          Set-Content -Path $migration -Encoding UTF8 -Value "<?php`nreturn new class extends Illuminate\Database\Migrations\Migration { public function up(): void { file_put_contents(storage_path('app/b11-migrated.txt'), 'migrated'); } };"
+          Set-Content -Path C:\SisBackupsFile -Value 'not a folder'
+          $config = Get-Content "$root\config.txt"
+          ($config -replace '^BACKUP_DIR=.*$', 'BACKUP_DIR=C:\SisBackupsFile') | Set-Content "$root\config.txt"
+
+          $p = Start-Process -FilePath "$root\Sis.exe" -ArgumentList '--headless' -WorkingDirectory $root -PassThru
+          if (-not $p.WaitForExit(600000)) { $p | Stop-Process -Force; throw 'The panel kept running although the backup before the update failed.' }
+          $log = Get-Content "$root\app\storage\logs\panel.log" -Encoding UTF8 | Select-Object -Last 15
+          $log | Write-Host
+          if ($p.ExitCode -eq 0) { throw 'The panel reported a start although the backup before the update failed.' }
+          if (Test-Path $marker) { throw 'The migration ran although the backup before the update failed.' }
+          if (-not ($log -match 'تعذّرت النسخة الاحتياطية قبل التحديث')) { throw 'The panel log does not say why the update was not applied.' }
+          $code = curl.exe -s -o NUL -w '%{http_code}' --max-time 10 http://127.0.0.1:8080/login
+          if ($code -ne '000') { throw "The site answered ($code) although the system must not start." }
+          Write-Host 'Refused as it must: no migration, no start, the reason in the log.'
+
+          # With a usable folder again the same start backs up first, then migrates.
+          $config | Set-Content "$root\config.txt"
+          Start-Process -FilePath "$root\Sis.exe" -ArgumentList '--headless' -WorkingDirectory $root
+          for ($i = 0; $i -lt 60 -and -not (Test-Path $marker); $i++) { Start-Sleep -Seconds 5 }
+          if (-not (Test-Path $marker)) { Get-Content "$root\app\storage\logs\panel.log" -Encoding UTF8 -Tail 30; throw 'The update was not applied once the backup could be made.' }
+          if (-not (Get-ChildItem C:\SisBackups\*_before-update.zip -ErrorAction SilentlyContinue)) { throw 'No backup was made before the update.' }
+          Write-Host 'With the folder fixed: backed up before the update, then migrated.'
+          Start-Process -FilePath "$root\Sis.exe" -ArgumentList '--stop' -Wait
+          # curl's "could not connect" above is the expected outcome, not this step's result
+          $global:LASTEXITCODE = 0
+
   publish:
     needs: smoke-test
     if: github.ref == 'refs/heads/main'

@@ -230,12 +230,12 @@ class BackupTriggersTest extends TestCase
     }
 
     /**
-     * T8. The PHP dump only: merging a mariadb-dump backup on MariaDB already failed before G5, with or without
-     * triggers (G5-F1: the dump's first SET is glued to its header comment and skipped, so the last SET reads NULL).
+     * T8, from both kinds of backup. G5-F1: a mariadb-dump backup used to fail at its last SET, after the rows were
+     * added, because the dump's first SET came glued to the header and was skipped.
      */
     public function test_merge_still_adds_only_the_missing_rows_from_a_backup_with_triggers(): void
     {
-        foreach (['php' => self::NOWHERE] as $label => $tools) {
+        foreach (['mariadb-dump' => [], 'php' => self::NOWHERE] as $label => $tools) {
             config(['backup.tools.dump' => $tools]);
             $zip = $this->backup();
             $restore = DB::connection('restore');

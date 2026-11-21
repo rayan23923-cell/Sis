@@ -296,7 +296,12 @@ class DatabaseBackupService
     /** One statement of a dump during merge(); see there. */
     private function mergeStatement(string $statement, array $wanted, array &$existing, array &$added, array &$errors): void
     {
-        if ($statement === '' || str_starts_with($statement, '--')) {
+        // G5-F1 (2026-11-21): a statement that follows the dump's header carries the header with it (comment lines,
+        // and the `/*M!999999\- enable the sandbox mode */` line newer mariadb-dump clients write first). Skipping
+        // the whole statement for that lost the dump's first SET, `@OLD_CHARACTER_SET_CLIENT`, so its last SET read
+        // NULL and every merge of a mariadb-dump backup failed after adding the rows.
+        $statement = trim(preg_replace('/\A(?:\s*(?:--[^\n]*|\/\*M![^*]*\*\/[ \t]*)(?:\n|\z))+/', '', $statement));
+        if ($statement === '') {
             return;
         }
         // Session settings (sql_mode, names, foreign keys) run as they are.

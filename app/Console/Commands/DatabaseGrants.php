@@ -62,8 +62,26 @@ class DatabaseGrants extends Command
                     $this->revoke("REVOKE UPDATE, DELETE ON {$q($schema)}.{$q($table)} FROM {$account}");
                 }
             }
-            $this->revoke("REVOKE ALL PRIVILEGES ON {$q($schema)}.* FROM {$account}");
-            $this->revoke("REVOKE GRANT OPTION ON {$q($schema)}.* FROM {$account}");
+            // Docker's entrypoint grants on the escaped name (`sis\_test`), a separate entry from `sis_test`. Both are
+            // revoked; the maintenance account may hold only one of them, and must be able to revoke on at least one.
+            $revoked = 0;
+            foreach (array_unique([$schema, addcslashes($schema, '_%')]) as $name) {
+                try {
+                    $this->revoke("REVOKE ALL PRIVILEGES ON {$q($name)}.* FROM {$account}");
+                    $this->revoke("REVOKE GRANT OPTION ON {$q($name)}.* FROM {$account}");
+                    $revoked++;
+                } catch (QueryException $e) {
+                    if (($e->errorInfo[1] ?? null) !== 1044) {
+                        throw $e;
+                    }
+                    $this->warn("Could not revoke on {$q($name)}.* (this account holds no grant there).");
+                }
+            }
+            if ($revoked === 0) {
+                $this->error("Refused: this account cannot revoke the database-wide grants on {$q($schema)}.");
+
+                return self::FAILURE;
+            }
 
             $this->info(sprintf('%s@%s: SELECT, INSERT, UPDATE, DELETE on %d tables; %s: SELECT, INSERT only; no database-wide privileges.',
                 $user, $host, count($tables) - count(array_intersect($tables, self::APPEND_ONLY)), implode(', ', self::APPEND_ONLY)));

@@ -182,7 +182,8 @@ class DatabaseAccountsTest extends TestCase
     public function test_triggers_made_by_the_application_account_are_made_again_by_the_maintenance_account(): void
     {
         $user = env('SIS_APP_DB_USERNAME');
-        DB::statement('GRANT ALL PRIVILEGES ON `'.DB::getDatabaseName()."`.* TO '{$user}'@'%'"); // as Docker gives it
+        // as Docker's entrypoint gives it: on the escaped name, a separate grant entry from the plain one
+        DB::statement('GRANT ALL PRIVILEGES ON `'.addcslashes(DB::getDatabaseName(), '_%')."`.* TO '{$user}'@'%'");
         DB::setDefaultConnection('app');
         DB::purge('app');
         (require database_path('migrations/'.ProtectedTriggers::MIGRATION.'.php'))->up(); // definer: the app account
@@ -190,6 +191,7 @@ class DatabaseAccountsTest extends TestCase
         $this->artisan('sis:db-grants', ['--user' => $user])->assertExitCode(0);
 
         $this->asApp();
+        $this->assertRefused(fn () => DB::statement('CREATE TABLE g6a_probe (id INT)'));
         $draft = $this->draftResultId();
         try {
             DB::table('final_results')->where('id', $draft)->update(['updated_at' => now()]);

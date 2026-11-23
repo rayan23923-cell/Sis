@@ -24,6 +24,16 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // G6a (B-13): the maintenance account, for console processes that were given it (UsesMaintenanceAccount).
+        // Read from the process environment at run time, so it never lands in the cached configuration.
+        if ($this->app->runningInConsole() && filled(env('DB_MAINT_USERNAME'))) {
+            $default = config('database.default');
+            config(['database.app_connection' => $default]);
+            config(['database.connections.maintenance' => array_merge(config("database.connections.{$default}"), [
+                'username' => env('DB_MAINT_USERNAME'), 'password' => (string) env('DB_MAINT_PASSWORD', ''),
+            ])]);
+        }
+
         // no "uncompromised" check: the offline server has no internet
         Password::defaults(fn () => Password::min(config('security.password_min', 10))->letters()->numbers());
         Vite::prefetch(concurrency: 3);

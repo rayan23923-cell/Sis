@@ -14,11 +14,16 @@ if [ "$1" = "php-fpm" ]; then
         sleep 2
     done
 
-    php artisan migrate --force --no-interaction
+    # G6a (B-13): migrations and seeding on the maintenance account, then the application account gets its
+    # per-table grants (no DDL, audit_logs append-only).
+    on=""
+    [ -n "${DB_MAINT_USERNAME:-}" ] && on="--database=maintenance"
+    php artisan migrate --force --no-interaction $on
+    [ -n "$on" ] && php artisan sis:db-grants
     # First install only: unofficial starting policies, the administrator and (staging) demo data.
     # The admin password is written to storage/app/private/admin-password.txt, never to the log.
     if [ ! -f storage/app/.seeded ]; then
-        php artisan db:seed --force --no-interaction
+        php artisan db:seed --force --no-interaction $on
         touch storage/app/.seeded
     fi
     php artisan config:cache
@@ -35,4 +40,8 @@ else
     done
 fi
 
-exec docker-php-entrypoint "$@"
+# G6a: only the scheduler keeps the maintenance account (backups, trigger checks); the web and the queue drop it.
+case "$*" in
+    *schedule:work*) exec docker-php-entrypoint "$@" ;;
+    *) exec env -u DB_MAINT_USERNAME -u DB_MAINT_PASSWORD docker-php-entrypoint "$@" ;;
+esac

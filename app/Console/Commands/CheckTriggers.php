@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\UsesMaintenanceAccount;
 use App\Models\FinalResult;
 use App\Models\User;
 use App\Notifications\Notice;
@@ -21,11 +22,19 @@ use Illuminate\Support\Facades\Log;
  */
 class CheckTriggers extends Command
 {
+    use UsesMaintenanceAccount;
+
     protected $signature = 'sis:check-triggers';
 
     protected $description = 'Check that the triggers protecting locked results exist and refuse changes (daily).';
 
+    /** G6a: on the maintenance account, the one that can see (and dump) the triggers. */
     public function handle(Notifier $notifier): int
+    {
+        return $this->onMaintenance(fn () => $this->work($notifier));
+    }
+
+    private function work(Notifier $notifier): int
     {
         $problems = [];
         foreach (ProtectedTriggers::missing() as $name) {

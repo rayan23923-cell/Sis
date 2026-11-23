@@ -35,8 +35,12 @@ mariadb -uroot -e "CREATE DATABASE sis_test; CREATE USER 'sis'@'localhost' IDENT
 # B-09: قاعدة ثانية وحساب محصور بها، لاستعادة نسخة احتياطية بحساب غير الذي أنشأ الـ Triggers
 mariadb -uroot -e "CREATE DATABASE sis_restore; CREATE USER 'sis_restorer'@'localhost' IDENTIFIED BY 'restorer'; GRANT ALL ON sis_restore.* TO 'sis_restorer'@'localhost';"
 
+# G6a: an application account without grants (the tests grant it per table), and GRANT OPTION for the tests' account
+mariadb -uroot -e "CREATE USER 'sis_app_test'@'%' IDENTIFIED BY 'app-local'; GRANT ALL ON sis_test.* TO 'sis'@'localhost' WITH GRANT OPTION;"
+
 DB_CONNECTION=mariadb DB_HOST=127.0.0.1 DB_DATABASE=sis_test DB_USERNAME=sis DB_PASSWORD=sis \
 SIS_RESTORE_DB_DATABASE=sis_restore SIS_RESTORE_DB_USERNAME=sis_restorer SIS_RESTORE_DB_PASSWORD=restorer \
+SIS_APP_DB_USERNAME=sis_app_test SIS_APP_DB_PASSWORD=app-local \
   php vendor/bin/phpunit
 ```
 
@@ -55,3 +59,19 @@ SIS_RESTORE_DB_DATABASE=sis_restore SIS_RESTORE_DB_USERNAME=sis_restorer SIS_RES
 php artisan migrate:refresh --path=database/migrations/2026_11_21_000000_protect_locked_final_results.php --force
 php artisan sis:check-triggers
 ```
+
+## G6a: حسابات قاعدة البيانات الثلاثة
+
+| الحساب | يستخدمه | الصلاحيات |
+|---|---|---|
+| `sis_app` (staging: `DB_USERNAME`) | الموقع والطابور | جدولاً جدولاً: `SELECT, INSERT, UPDATE, DELETE`، و`audit_logs`: `SELECT, INSERT` فقط. بلا DDL ولا `TRIGGER` |
+| `sis_maint` | الترحيلات، `db:seed`، `sis:db-grants`، النسخ والاستعادة، الفحص اليومي، المجدول | كل الصلاحيات على قاعدة `sis` وحدها، مع `GRANT OPTION` |
+| `root` | الطوارئ فقط | — |
+
+- **أين تُحفظ بيانات الحسابات:**
+  - **Windows:** كلمتا مرور `root` و`sis_maint` في `data\sis-accounts.dat`، مشفرتين بـ DPAPI لهذا الجهاز، وتُنسخان مع الإعدادات إلى مجلد النسخ. `sis_app` في `app\.env`.
+  - **staging:** `DB_MAINT_USERNAME` و`DB_MAINT_PASSWORD` في `.env`. لا يحتفظ بها إلا المجدول، أما الموقع والطابور فيحذفانها عند التشغيل (`entrypoint.sh`).
+- **بعد كل ترحيل:** يُشغَّل `php artisan sis:db-grants` بحساب الصيانة. اللوحة والـ entrypoint يشغّلانه تلقائياً.
+- **إذا ضاع ملف الحسابات على Windows:** تُشغَّل MariaDB يدوياً بـ `--skip-grant-tables`، ثم يُعاد تعيين كلمة مرور `root`، ثم يُحذف `sis-accounts.dat`، فتعيد اللوحة إنشاء الحسابات في التشغيل التالي.
+- **كل Trigger جديد يُنشأ بترحيل يعمل بحساب الصيانة.** الـ Trigger يعمل بصلاحيات من أنشأه، فإذا أنشأه حساب التطبيق ثم فقد صلاحية `TRIGGER`، تتوقف كل كتابة على الجدول.
+

@@ -31,6 +31,24 @@ final class ProtectedTriggers
         return $names;
     }
 
+    /** The migration that installs them (B-09). */
+    public const MIGRATION = '2026_11_21_000000_protect_locked_final_results';
+
+    /**
+     * G6a: the triggers this database must have, by its migrations, whether or not this account can see them.
+     * An account without the TRIGGER privilege (the application's, since B-13) sees none of them in
+     * information_schema, and mariadb-dump run as it leaves them out: present() alone would then look fine.
+     *
+     * @return list<string>
+     */
+    public static function required(?Connection $db = null): array
+    {
+        $db ??= DB::connection();
+        $ran = $db->getSchemaBuilder()->hasTable('migrations') && $db->table('migrations')->where('migration', self::MIGRATION)->exists();
+
+        return $ran ? array_keys(self::EXPECTED) : [];
+    }
+
     /** @return list<string> expected triggers that this database lacks */
     public static function missing(?Connection $db = null): array
     {

@@ -418,7 +418,14 @@ class DatabaseBackupService
         if (! in_array(DB::connection()->getDriverName(), ['mariadb', 'mysql'], true)) {
             return;
         }
-        $missing = array_values(array_diff(ProtectedTriggers::present(), $this->triggersInDump($file)));
+        $present = ProtectedTriggers::present();
+        if ($unseen = array_values(array_diff(ProtectedTriggers::required(), $present))) {
+            // G6a: run as an account that cannot see them (the application's), so it cannot back them up either
+            @unlink($file);
+            throw new \RuntimeException('The backup was not kept: this database account cannot see the triggers '.implode(', ', $unseen)
+                .' (run backups on the maintenance account, or put the triggers back).');
+        }
+        $missing = array_values(array_diff($present, $this->triggersInDump($file)));
         if ($missing !== []) {
             @unlink($file);
             throw new \RuntimeException('The backup is incomplete, so it was not kept: these triggers are not in it: '.implode(', ', $missing));

@@ -1,0 +1,6 @@
+# SIS on AWS: this Caddy is the only thing listening on 80/443 and gets the TLS certificate itself.
+{$SIS_DOMAIN} {
+	encode zstd gzip
+	header Strict-Transport-Security "max-age=31536000"
+	reverse_proxy sis-web:80
+}

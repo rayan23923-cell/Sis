@@ -1,0 +1,30 @@
+# Added on top of deploy/vps/docker-compose.yml on the AWS server (deploy/aws/deploy.sh).
+# The VPS shares a Caddy with other sites; on AWS the server is SIS's alone, so it runs its own Caddy
+# and the `edge` network is a private one instead of the VPS's shared `headscale_default`.
+# Paths are relative to deploy/vps (the first compose file's folder).
+services:
+  caddy:
+    image: caddy:2.10
+    container_name: sis-caddy
+    restart: unless-stopped
+    depends_on: [web]
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      SIS_DOMAIN: ${SIS_DOMAIN}
+    volumes:
+      - ../aws/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [edge]
+
+volumes:
+  caddy_data:
+  caddy_config:
+
+networks:
+  edge:
+    external: false
+    name: sis_edge

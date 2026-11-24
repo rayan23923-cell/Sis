@@ -5,7 +5,7 @@ name: Deploy to VPS (staging)
 # builds the images on the server, migrates, and on the first install seeds demo data.
 #
 # Repository secret: VPS_SSH_KEY (private key of the ubuntu user, no passphrase).
-# Optional: VPS_HOST (default 193.123.83.82), VPS_USER (default ubuntu).
+# Optional: VPS_HOST (default 16.16.76.126), VPS_USER (default ubuntu).
 # This repository is public, so the log prints only the server's shape, never secrets or file contents.
 on:
   push:
@@ -39,7 +39,7 @@ jobs:
       - name: Set up SSH
         env:
           KEY: ${{ secrets.VPS_SSH_KEY }}
-          VPS_HOST: ${{ secrets.VPS_HOST || '193.123.83.82' }}
+          VPS_HOST: ${{ secrets.VPS_HOST || '16.16.76.126' }}
         run: |
           mkdir -p ~/.ssh
           printf '%s\n' "$KEY" | tr -d '\r' > ~/.ssh/vps_key
@@ -63,7 +63,7 @@ jobs:
 
       - name: Check the server
         env:
-          VPS_HOST: ${{ secrets.VPS_HOST || '193.123.83.82' }}
+          VPS_HOST: ${{ secrets.VPS_HOST || '16.16.76.126' }}
           VPS_USER: ${{ secrets.VPS_USER || 'ubuntu' }}
         run: |
           ssh -i ~/.ssh/vps_key -o ConnectTimeout=20 "$VPS_USER@$VPS_HOST" '
@@ -83,7 +83,7 @@ jobs:
 
       - name: Copy and start
         env:
-          VPS_HOST: ${{ secrets.VPS_HOST || '193.123.83.82' }}
+          VPS_HOST: ${{ secrets.VPS_HOST || '16.16.76.126' }}
           VPS_USER: ${{ secrets.VPS_USER || 'ubuntu' }}
         run: |
           # The tracked files of this commit only: no .env, no local database, no build output.

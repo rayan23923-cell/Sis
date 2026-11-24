@@ -2,7 +2,7 @@
 # Images for the VPS staging (https://sis.azoclinic.duckdns.org), built from the repo root:
 #   app  - PHP-FPM with the application, vendor/ and the built Vite assets (also runs the queue and scheduler)
 #   web  - nginx serving public/ and handing PHP to `app`
-# Same shape as FileNest's deploy/vps/Dockerfile; the server is ARM (aarch64), these images are multi-arch.
+# Same shape as FileNest's deploy/vps/Dockerfile; the images are multi-arch (the AWS server is x86_64).
 FROM php:8.4-fpm-alpine AS base
 RUN apk add --no-cache icu-libs libzip libpng freetype libjpeg-turbo mariadb-client \
     && apk add --no-cache --virtual .build $PHPIZE_DEPS icu-dev libzip-dev libpng-dev freetype-dev libjpeg-turbo-dev linux-headers \

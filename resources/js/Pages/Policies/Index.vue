@@ -6,6 +6,7 @@ import PageHeader from '@/Components/PageHeader.vue';
 import Badge from '@/Components/Badge.vue';
 import Modal from '@/Components/Modal.vue';
 import InputError from '@/Components/InputError.vue';
+import PolicyEditor from '@/Components/PolicyEditor.vue';
 import { policyStatus } from '@/lib/labels';
 import { ScaleIcon, ExclamationTriangleIcon, ShieldCheckIcon, DocumentDuplicateIcon, ChevronDownIcon } from '@heroicons/vue/24/outline';
 
@@ -31,15 +32,24 @@ const describe = (p) => {
         case 'rounds': return `عدد الأدوار: ${x.max_rounds} · ${x.resit_cap ? `سقف درجة الدور الثاني ${x.resit_cap}` : 'بدون سقف لدرجة الدور الثاني'}`;
         case 'gpa': return `المعدل على أساس ${x.basis === 'marks' ? 'الدرجات' : 'النقاط'} موزوناً بـ ${x.weight === 'ects' ? 'ECTS' : 'الوحدات'} · ${x.include_failed ? 'تدخل المواد الراسبة' : 'تُستبعد المواد الراسبة'}`;
         case 'progression': return `الحد الأعلى للمواد المحملة: ${x.max_carried} · ${x.carry_in_final_stage ? 'يُسمح بالتحميل في المرحلة المنتهية' : 'لا تحميل في المرحلة المنتهية'}`;
+        case 'decision': return `قرار الدور الأول ${x.amounts?.['1'] ?? 0} درجة والثاني ${x.amounts?.['2'] ?? 0} · خصم الدور الثاني ${x.resit_deduction ?? 10} · درجة النجاح ${x.pass_mark ?? 50}`;
+        case 'attendance': return `${(x.warnings ?? []).map((w) => `${w.name_ar} عند ${w.percent}%`).join('، ') || 'بدون إنذارات'} · ${x.limit ? `حرمان عند ${x.limit}%` : 'بدون حرمان'}`;
+        case 'grade_scale': return (x.bands ?? []).map((b) => `${b.name_ar} ${b.min}–${b.max}`).join(' · ');
         default: return null;
     }
 };
 
 const showNew = ref(false);
 const base = ref(null);
+const params = ref({});
+const problem = ref(null);
 const form = useForm({ parameters: '', effective_from: new Date().toISOString().slice(0, 10), source_reference: '', approving_authority: '', is_official: false, changelog: '' });
-const newVersion = (p) => { base.value = p; form.reset(); form.clearErrors(); form.parameters = JSON.stringify(p.parameters, null, 2); showNew.value = true; };
-const save = () => form.post(route('policies.version', base.value.id), { preserveScroll: true, onSuccess: () => (showNew.value = false) });
+const newVersion = (p) => { base.value = p; form.reset(); form.clearErrors(); params.value = JSON.parse(JSON.stringify(p.parameters)); problem.value = null; showNew.value = true; };
+const preview = computed(() => (base.value ? describe({ type: base.value.type, parameters: params.value }) : null));
+const save = () => {
+    form.parameters = JSON.stringify(params.value);
+    form.post(route('policies.version', base.value.id), { preserveScroll: true, onSuccess: () => (showNew.value = false) });
+};
 const approve = (p) => confirm(`اعتماد الإصدار ${p.version}؟ سيُطبق على كل احتساب من ${p.from}.`) && router.post(route('policies.approve', p.id), {}, { preserveScroll: true });
 const discard = (p) => confirm('حذف هذه المسودة؟') && router.delete(route('policies.destroy', p.id), { preserveScroll: true });
 </script>
@@ -114,14 +124,21 @@ const discard = (p) => confirm('حذف هذه المسودة؟') && router.delet
                 <h3 class="text-lg font-extrabold">إصدار جديد: {{ base.name }}</h3>
                 <p class="mt-1 text-sm text-slate-500">يُحفظ كمسودة ولا يُطبق قبل الاعتماد. الإصدارات السابقة تبقى كما هي.</p>
                 <div class="mt-5 grid gap-4 sm:grid-cols-2">
-                    <div class="sm:col-span-2"><label class="label">المعاملات (JSON)</label><textarea v-model="form.parameters" dir="ltr" rows="10" class="input font-mono text-xs" /><InputError :message="form.errors.parameters" class="mt-1" /></div>
+                    <div class="sm:col-span-2">
+                        <PolicyEditor :key="base.id" v-model="params" :type="base.type" @invalid="problem = $event" />
+                        <InputError :message="form.errors.parameters" class="mt-1" />
+                        <div v-if="preview" class="mt-3 rounded-xl border border-brand-100 bg-brand-50/60 p-3 text-sm text-brand-900">
+                            <p class="text-xs font-bold text-brand-700">القاعدة بعد التعديل</p>
+                            <p class="mt-0.5 leading-relaxed">{{ preview }}</p>
+                        </div>
+                    </div>
                     <div><label class="label">تاريخ النفاذ</label><input v-model="form.effective_from" type="date" class="input" required /></div>
                     <div><label class="label">رقم الكتاب الرسمي وتاريخه</label><input v-model="form.source_reference" class="input" /><InputError :message="form.errors.source_reference" class="mt-1" /></div>
                     <div><label class="label">الجهة المصادقة</label><input v-model="form.approving_authority" class="input" placeholder="مجلس الجامعة / الوزارة" /></div>
                     <label class="flex items-center gap-2 self-end pb-2 text-sm font-semibold"><input v-model="form.is_official" type="checkbox" class="rounded border-slate-300 text-brand-600" /> نص رسمي معتمد</label>
                     <div class="sm:col-span-2"><label class="label">ما الذي تغير ولماذا</label><textarea v-model="form.changelog" rows="2" class="input" required /><InputError :message="form.errors.changelog" class="mt-1" /></div>
                 </div>
-                <div class="mt-6 flex justify-end gap-2"><button type="button" class="btn-secondary" @click="showNew = false">إلغاء</button><button class="btn-primary" :disabled="form.processing">حفظ كمسودة</button></div>
+                <div class="mt-6 flex justify-end gap-2"><button type="button" class="btn-secondary" @click="showNew = false">إلغاء</button><button class="btn-primary" :disabled="form.processing || !!problem">حفظ كمسودة</button></div>
             </form>
         </Modal>
     </AppLayout>

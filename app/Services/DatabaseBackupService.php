@@ -43,6 +43,7 @@ class DatabaseBackupService
         $name = $connection['database'].'_'.now()->format('Ymd_His').($suffix !== '' ? '_'.$suffix : '');
         $sql = $dir.DIRECTORY_SEPARATOR.$name.'.sql';
 
+        $this->assertTriggersReadable();
         if (! $this->dumpWithMysqldump($connection, $sql)) {
             $this->dumpWithPhp($sql);
         }
@@ -78,6 +79,7 @@ class DatabaseBackupService
         if (($connection['driver'] ?? '') === 'sqlite') {
             file_put_contents($sql, "-- SQLite (tests): no MySQL dump.\n");
         } else {
+            $this->assertTriggersReadable();
             if (! $this->dumpWithMysqldump($connection, $sql)) {
                 $this->dumpWithPhp($sql);
             }
@@ -418,17 +420,31 @@ class DatabaseBackupService
         if (! in_array(DB::connection()->getDriverName(), ['mariadb', 'mysql'], true)) {
             return;
         }
-        $present = ProtectedTriggers::present();
-        if ($unseen = array_values(array_diff(ProtectedTriggers::required(), $present))) {
-            // G6a: run as an account that cannot see them (the application's), so it cannot back them up either
+        try {
+            $this->assertTriggersReadable();
+        } catch (\RuntimeException $e) {
             @unlink($file);
-            throw new \RuntimeException('The backup was not kept: this database account cannot see the triggers '.implode(', ', $unseen)
-                .' (run backups on the maintenance account, or put the triggers back).');
+            throw $e;
         }
-        $missing = array_values(array_diff($present, $this->triggersInDump($file)));
+        $missing = array_values(array_diff(ProtectedTriggers::present(), $this->triggersInDump($file)));
         if ($missing !== []) {
             @unlink($file);
             throw new \RuntimeException('The backup is incomplete, so it was not kept: these triggers are not in it: '.implode(', ', $missing));
+        }
+    }
+
+    /**
+     * G6a: checked before anything is written. An account without TRIGGER (the application's) cannot read the
+     * triggers (10.11 hides them; 11.x lists the names but refuses their bodies, 1227), so it cannot back them up.
+     */
+    private function assertTriggersReadable(): void
+    {
+        if (! in_array(DB::connection()->getDriverName(), ['mariadb', 'mysql'], true)) {
+            return;
+        }
+        if ($unseen = array_values(array_diff(ProtectedTriggers::required(), ProtectedTriggers::present()))) {
+            throw new \RuntimeException('No backup was made: this database account cannot see the triggers '.implode(', ', $unseen)
+                .' (run backups on the maintenance account, or put the triggers back).');
         }
     }
 
@@ -637,49 +653,56 @@ class DatabaseBackupService
             throw new \RuntimeException("Unable to write backup file: {$fullPath}");
         }
 
-        fwrite($handle, "-- SIS backup: php (mariadb-dump was not usable)\nSET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS=0;\nSET SESSION sql_mode='NO_AUTO_VALUE_ON_ZERO,NO_ENGINE_SUBSTITUTION';\n\n");
+        try {
+            fwrite($handle, "-- SIS backup: php (mariadb-dump was not usable)\nSET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS=0;\nSET SESSION sql_mode='NO_AUTO_VALUE_ON_ZERO,NO_ENGINE_SUBSTITUTION';\n\n");
 
-        $tables = array_map(fn ($row) => array_values((array) $row)[0], $pdo->query('SHOW FULL TABLES WHERE Table_type = \'BASE TABLE\'')->fetchAll(\PDO::FETCH_NUM));
+            $tables = array_map(fn ($row) => array_values((array) $row)[0], $pdo->query('SHOW FULL TABLES WHERE Table_type = \'BASE TABLE\'')->fetchAll(\PDO::FETCH_NUM));
 
-        foreach ($tables as $table) {
-            $quoted = str_replace('`', '``', $table);
-            $create = $pdo->query("SHOW CREATE TABLE `{$quoted}`")->fetch(\PDO::FETCH_ASSOC);
-            fwrite($handle, "--\n-- Table structure for table `{$table}`\n--\n\nDROP TABLE IF EXISTS `{$quoted}`;\n".($create['Create Table'] ?? '').";\n\n");
-            if (in_array($table, $structureOnly, true)) {
-                continue;
-            }
-            $blank = $nullColumns[$table] ?? [];
-
-            $stmt = $pdo->query("SELECT * FROM `{$quoted}`");
-            $batch = [];
-            $bytes = 0;
-            $columns = null;
-
-            while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
-                $columns ??= array_keys($row);
-                $values = array_map(fn ($col) => is_null($row[$col]) || in_array($col, $blank, true) ? 'NULL' : $pdo->quote($row[$col]), $columns);
-                $batch[] = $tuple = '('.implode(',', $values).')';
-                $bytes += strlen($tuple);
-
-                // Also by size (2026-10-19), so rows holding signatures or
-                // photos stay well under the server's max_allowed_packet.
-                if (count($batch) >= 500 || $bytes >= 1048576) {
-                    $this->writeInsert($handle, $quoted, $columns, $batch);
-                    $batch = [];
-                    $bytes = 0;
+            foreach ($tables as $table) {
+                $quoted = str_replace('`', '``', $table);
+                $create = $pdo->query("SHOW CREATE TABLE `{$quoted}`")->fetch(\PDO::FETCH_ASSOC);
+                fwrite($handle, "--\n-- Table structure for table `{$table}`\n--\n\nDROP TABLE IF EXISTS `{$quoted}`;\n".($create['Create Table'] ?? '').";\n\n");
+                if (in_array($table, $structureOnly, true)) {
+                    continue;
                 }
+                $blank = $nullColumns[$table] ?? [];
+
+                $stmt = $pdo->query("SELECT * FROM `{$quoted}`");
+                $batch = [];
+                $bytes = 0;
+                $columns = null;
+
+                while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
+                    $columns ??= array_keys($row);
+                    $values = array_map(fn ($col) => is_null($row[$col]) || in_array($col, $blank, true) ? 'NULL' : $pdo->quote($row[$col]), $columns);
+                    $batch[] = $tuple = '('.implode(',', $values).')';
+                    $bytes += strlen($tuple);
+
+                    // Also by size (2026-10-19), so rows holding signatures or
+                    // photos stay well under the server's max_allowed_packet.
+                    if (count($batch) >= 500 || $bytes >= 1048576) {
+                        $this->writeInsert($handle, $quoted, $columns, $batch);
+                        $batch = [];
+                        $bytes = 0;
+                    }
+                }
+
+                if ($batch !== []) {
+                    $this->writeInsert($handle, $quoted, $columns, $batch);
+                }
+
+                fwrite($handle, "\n");
+                $this->writeTriggers($handle, $pdo, $table);
             }
 
-            if ($batch !== []) {
-                $this->writeInsert($handle, $quoted, $columns, $batch);
-            }
-
-            fwrite($handle, "\n");
-            $this->writeTriggers($handle, $pdo, $table);
+            fwrite($handle, "SET FOREIGN_KEY_CHECKS=1;\n");
+            fclose($handle);
+        } catch (\Throwable $e) {
+            // never leave a half-written dump behind, where it could pass for a backup
+            fclose($handle);
+            @unlink($fullPath);
+            throw $e;
         }
-
-        fwrite($handle, "SET FOREIGN_KEY_CHECKS=1;\n");
-        fclose($handle);
     }
 
     /**

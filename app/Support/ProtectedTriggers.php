@@ -17,13 +17,16 @@ final class ProtectedTriggers
         'final_results_locked_delete' => ['final_results', 'only draft results can be removed'],
     ];
 
-    /** @return list<string> the triggers on this connection's own database, by name */
+    /** @return list<string> the triggers on this connection's own database that this account can read, by name */
     public static function present(?Connection $db = null): array
     {
         $db ??= DB::connection();
         $names = match ($db->getDriverName()) {
             'sqlite' => $db->table('sqlite_master')->where('type', 'trigger')->pluck('name'),
-            default => $db->table('information_schema.TRIGGERS')->where('TRIGGER_SCHEMA', $db->getDatabaseName())->pluck('TRIGGER_NAME'),
+            // G6a: MariaDB 11.x lists a trigger's name to an account without TRIGGER, but not its body (NULL), and
+            // mariadb-dump run as that account leaves it out; only a trigger whose body this account reads counts
+            default => $db->table('information_schema.TRIGGERS')->where('TRIGGER_SCHEMA', $db->getDatabaseName())
+                ->whereNotNull('ACTION_STATEMENT')->pluck('TRIGGER_NAME'),
         };
         $names = $names->all();
         sort($names);
@@ -36,8 +39,8 @@ final class ProtectedTriggers
 
     /**
      * G6a: the triggers this database must have, by its migrations, whether or not this account can see them.
-     * An account without the TRIGGER privilege (the application's, since B-13) sees none of them in
-     * information_schema, and mariadb-dump run as it leaves them out: present() alone would then look fine.
+     * An account without the TRIGGER privilege (the application's, since B-13) cannot read them in
+     * information_schema (10.11 hides them; 11.x shows the name only), and mariadb-dump run as it leaves them out: present() alone would then look fine.
      *
      * @return list<string>
      */

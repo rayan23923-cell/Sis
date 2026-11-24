@@ -164,6 +164,7 @@ class DatabaseAccountsTest extends TestCase
         // without the maintenance account: loud, never a backup that silently lacks the triggers
         $this->artisan('backup:run', ['--force' => true])->expectsOutputToContain('cannot see the triggers')->assertExitCode(1);
         $this->assertSame([], glob($this->dir.'/*.zip'));
+        $this->assertSame([], glob($this->dir.'/*.sql'), 'nor a half-written dump');
         $this->artisan('sis:check-triggers')->expectsOutputToContain('final_results_locked_update: missing')->assertExitCode(1);
 
         // with it, as the panel and the scheduler run them

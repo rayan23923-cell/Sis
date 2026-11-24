@@ -1,0 +1,209 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  SIS (Student Information System) on one EC2 server (ARM/Graviton, Ubuntu 24.04) running the same
+  Docker stack as the VPS staging, with its own Caddy for HTTPS. No SSH port: the server is reached
+  through AWS Systems Manager only. GitHub Actions deploys through a role it can assume by OIDC, so no
+  AWS keys are stored anywhere. Daily disk snapshots, encrypted disk, IMDSv2 only.
+
+Parameters:
+  InstanceType:
+    Type: String
+    Default: t4g.medium
+    AllowedValues: [t4g.small, t4g.medium, t4g.large, t4g.xlarge]
+    Description: t4g.medium (2 vCPU, 4 GB) is enough for a demo; t4g.large for real use.
+  DiskSizeGiB:
+    Type: Number
+    Default: 40
+    MinValue: 20
+  GitHubRepository:
+    Type: String
+    Default: rayan23923-cell/Sis
+    Description: owner/name, exact case. Only its main branch may deploy.
+  CreateGitHubOidcProvider:
+    Type: String
+    Default: "true"
+    AllowedValues: ["true", "false"]
+    Description: Set to false if this AWS account already has token.actions.githubusercontent.com in IAM > Identity providers.
+  SnapshotsToKeep:
+    Type: Number
+    Default: 7
+    MinValue: 1
+  UbuntuAmi:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/canonical/ubuntu/server/24.04/stable/current/arm64/hvm/ebs-gp3/ami-id
+
+Conditions:
+  CreateOidc: !Equals [!Ref CreateGitHubOidcProvider, "true"]
+
+Resources:
+  # ---- Network: one public subnet, only HTTP/HTTPS open ----
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.60.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags: [{ Key: Name, Value: sis }]
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+  GatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties: { VpcId: !Ref Vpc, InternetGatewayId: !Ref InternetGateway }
+  Subnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.60.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      Tags: [{ Key: Name, Value: sis-public }]
+  RouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties: { VpcId: !Ref Vpc }
+  DefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: GatewayAttachment
+    Properties: { RouteTableId: !Ref RouteTable, DestinationCidrBlock: 0.0.0.0/0, GatewayId: !Ref InternetGateway }
+  SubnetRoutes:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: { SubnetId: !Ref Subnet, RouteTableId: !Ref RouteTable }
+  WebSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: SIS - HTTP and HTTPS only (no SSH; use Session Manager)
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - { IpProtocol: tcp, FromPort: 80, ToPort: 80, CidrIp: 0.0.0.0/0, Description: "HTTP - redirects to HTTPS and certificate challenge" }
+        - { IpProtocol: tcp, FromPort: 443, ToPort: 443, CidrIp: 0.0.0.0/0, Description: HTTPS }
+        - { IpProtocol: udp, FromPort: 443, ToPort: 443, CidrIp: 0.0.0.0/0, Description: HTTP/3 }
+
+  # ---- The server ----
+  ServerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement: [{ Effect: Allow, Principal: { Service: ec2.amazonaws.com }, Action: sts:AssumeRole }]
+      ManagedPolicyArns: [arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore]
+  ServerProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties: { Roles: [!Ref ServerRole] }
+  LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateData:
+        MetadataOptions: { HttpTokens: required, HttpPutResponseHopLimit: 1 }
+        BlockDeviceMappings:
+          - DeviceName: /dev/sda1
+            Ebs: { VolumeSize: !Ref DiskSizeGiB, VolumeType: gp3, Encrypted: true, DeleteOnTermination: false }
+        TagSpecifications:
+          - ResourceType: volume
+            Tags: [{ Key: Name, Value: sis-data }, { Key: SisBackup, Value: daily }]
+  Server:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref UbuntuAmi
+      InstanceType: !Ref InstanceType
+      LaunchTemplate: { LaunchTemplateId: !Ref LaunchTemplate, Version: !GetAtt LaunchTemplate.LatestVersionNumber }
+      IamInstanceProfile: !Ref ServerProfile
+      SubnetId: !Ref Subnet
+      SecurityGroupIds: [!Ref WebSecurityGroup]
+      Tags: [{ Key: Name, Value: sis }]
+      UserData:
+        Fn::Base64: |
+          #!/bin/bash
+          set -eux
+          mkdir -p /etc/sis /opt/sis
+          # 2 GB swap: the first image build (Composer + Vite) needs more than 4 GB at its peak.
+          if [ ! -f /swapfile ]; then fallocate -l 2G /swapfile; chmod 600 /swapfile; mkswap /swapfile; swapon /swapfile; echo '/swapfile none swap sw 0 0' >> /etc/fstab; fi
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update
+          apt-get install -y docker.io docker-compose-v2 docker-buildx unattended-upgrades
+          systemctl enable --now docker
+          # Security updates install themselves.
+          dpkg-reconfigure -f noninteractive unattended-upgrades
+  ServerIp:
+    Type: AWS::EC2::EIP
+    DependsOn: GatewayAttachment
+    Properties: { Domain: vpc, InstanceId: !Ref Server }
+
+  # ---- Daily snapshots of the server's disk ----
+  SnapshotRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement: [{ Effect: Allow, Principal: { Service: dlm.amazonaws.com }, Action: sts:AssumeRole }]
+      ManagedPolicyArns: [arn:aws:iam::aws:policy/service-role/AWSDataLifecycleManagerServiceRole]
+  DailySnapshots:
+    Type: AWS::DLM::LifecyclePolicy
+    Properties:
+      Description: SIS daily disk snapshots
+      State: ENABLED
+      ExecutionRoleArn: !GetAtt SnapshotRole.Arn
+      PolicyDetails:
+        ResourceTypes: [VOLUME]
+        TargetTags: [{ Key: SisBackup, Value: daily }]
+        Schedules:
+          - Name: daily
+            CopyTags: true
+            CreateRule: { Interval: 24, IntervalUnit: HOURS, Times: ["00:30"] }
+            RetainRule: { Count: !Ref SnapshotsToKeep }
+
+  # ---- GitHub Actions: may only run commands on this one server, from the main branch ----
+  GitHubOidc:
+    Type: AWS::IAM::OIDCProvider
+    Condition: CreateOidc
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList: [sts.amazonaws.com]
+      ThumbprintList: [6938fd4d98bab03faadb97b34396831e3780aea1]
+  DeployRole:
+    Type: AWS::IAM::Role
+    Properties:
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !If
+                - CreateOidc
+                - !Ref GitHubOidc
+                - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubRepository}:ref:refs/heads/main
+      Policies:
+        - PolicyName: run-deploy-on-sis-server
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: ssm:SendCommand
+                Resource:
+                  - !Sub arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:instance/${Server}
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}::document/AWS-RunShellScript
+              - Effect: Allow
+                Action: [ssm:GetCommandInvocation, ssm:ListCommandInvocations, ssm:DescribeInstanceInformation]
+                Resource: "*"
+
+Outputs:
+  SiteIp:
+    Description: Point your own domain's A record here (then set the GitHub variable SIS_DOMAIN)
+    Value: !Ref ServerIp
+  SiteUrl:
+    Description: The site until a domain is set
+    Value: !Sub
+      - https://${Dashed}.sslip.io
+      - Dashed: !Join ["-", !Split [".", !Ref ServerIp]]
+  AwsRoleArn:
+    Description: GitHub repository variable AWS_ROLE_ARN
+    Value: !GetAtt DeployRole.Arn
+  AwsInstanceId:
+    Description: GitHub repository variable AWS_INSTANCE_ID
+    Value: !Ref Server
+  AwsRegion:
+    Description: GitHub repository variable AWS_REGION
+    Value: !Ref AWS::Region

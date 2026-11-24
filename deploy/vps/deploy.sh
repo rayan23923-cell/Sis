@@ -5,7 +5,9 @@
 set -eu
 cd "$(dirname "$0")/../.."
 
-compose() { sudo docker compose --env-file .env -f deploy/vps/docker-compose.yml "$@"; }
+# The AWS server adds its own Caddy on top (deploy/aws/deploy.sh sets SIS_COMPOSE_EXTRA).
+extra="${SIS_COMPOSE_EXTRA:+-f $SIS_COMPOSE_EXTRA}"
+compose() { sudo docker compose --env-file .env -f deploy/vps/docker-compose.yml $extra "$@"; }
 rand() { head -c 48 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c "$1"; }
 
 if [ ! -f .env ]; then
@@ -16,6 +18,12 @@ if [ ! -f .env ]; then
         deploy/vps/env.example > .env
     umask 022
     echo "Created .env with fresh secrets."
+fi
+# The site address when it is not the VPS staging one (AWS); set on every run so a new domain takes effect.
+if [ -n "${SIS_APP_URL:-}" ]; then
+    sed -i "s|^APP_URL=.*|APP_URL=$SIS_APP_URL|" .env
+    sed -i '/^SIS_DOMAIN=/d' .env
+    printf '\nSIS_DOMAIN=%s\n' "$SIS_DOMAIN" >> .env
 fi
 # Settings added after the first install (an existing value is never changed).
 grep -q '^PAYMENTS_SANDBOX=' .env || printf '\nPAYMENTS_SANDBOX=true\n' >> .env
@@ -69,7 +77,8 @@ if [ ! -f "$HOME/sis-admin-password.txt" ] && sudo docker exec sis-app test -f s
     echo "Admin password saved to ~/sis-admin-password.txt"
 fi
 
-sh deploy/vps/caddy-site.sh
+# On the VPS the site is added to the shared Caddy; on AWS SIS runs its own (deploy/aws/docker-compose.aws.yml).
+[ "${SIS_OWN_CADDY:-}" = 1 ] || sh deploy/vps/caddy-site.sh
 
 echo "PHP $(sudo docker exec sis-app php -r 'echo PHP_VERSION;')"
 compose ps --format '{{.Name}}  {{.Status}}'

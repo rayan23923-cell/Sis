@@ -351,7 +351,16 @@ namespace SisPanel
 
         public ProcessStartInfo Info(string file, string args, string dir)
         {
+            return Info(file, args, dir, null);
+        }
+
+        // G6a: secrets (root's and the maintenance account's passwords) go
+        // into one child's environment only, never into this process's, so
+        // the web workers and the queue never inherit them.
+        public ProcessStartInfo Info(string file, string args, string dir, IDictionary<string, string> env)
+        {
             var si = new ProcessStartInfo(file, args);
+            if (env != null) foreach (var kv in env) si.EnvironmentVariables[kv.Key] = kv.Value;
             si.UseShellExecute = false;
             si.CreateNoWindow = true;
             si.WindowStyle = ProcessWindowStyle.Hidden;
@@ -369,9 +378,14 @@ namespace SisPanel
         // A long-running service; its output goes to logs\<logName>.
         Process Spawn(string file, string args, string dir, string logName)
         {
+            return Spawn(file, args, dir, logName, null);
+        }
+
+        Process Spawn(string file, string args, string dir, string logName, IDictionary<string, string> env)
+        {
             string log = Path.Combine(LogDir, logName);
             var p = new Process();
-            p.StartInfo = Info(file, args, dir);
+            p.StartInfo = Info(file, args, dir, env);
             p.OutputDataReceived += (s, e) => { if (e.Data != null) AppendTo(log, e.Data); };
             p.ErrorDataReceived += (s, e) => { if (e.Data != null) AppendTo(log, e.Data); };
             p.Start();
@@ -385,9 +399,14 @@ namespace SisPanel
         // A one-off command: waits for it and returns its exit code and output.
         Result Run(string file, string args, string dir, int timeoutMs)
         {
+            return Run(file, args, dir, timeoutMs, null);
+        }
+
+        Result Run(string file, string args, string dir, int timeoutMs, IDictionary<string, string> env)
+        {
             var sb = new StringBuilder();
             var p = new Process();
-            p.StartInfo = Info(file, args, dir);
+            p.StartInfo = Info(file, args, dir, env);
             DataReceivedEventHandler h = (s, e) => { if (e.Data != null) lock (sb) sb.AppendLine(e.Data); };
             p.OutputDataReceived += h;
             p.ErrorDataReceived += h;
@@ -470,7 +489,7 @@ namespace SisPanel
                 new Service("dns", "خادم الأسماء (" + ServerName + ")" + (DnsOn ? "" : " - معطّل"), "53", DnsOn ? 1 : 0,
                     i => Spawn(P(@"coredns\coredns.exe"), "-conf \"" + P("Corefile") + "\"", Root, "coredns.log")),
                 new Service("scheduler", "المهام المجدولة", "-", 1,
-                    i => Spawn(P(@"php\php.exe"), "artisan schedule:work", P("app"), "scheduler.log")),
+                    i => Spawn(P(@"php\php.exe"), "artisan schedule:work", P("app"), "scheduler.log", MaintEnv())),
                 // SIS's background jobs (notifications, emails) run from the database queue.
                 new Service("queue", "المعالجة في الخلفية", "-", 1,
                     i => Spawn(P(@"php\php.exe"), "artisan queue:work --sleep=3 --tries=3 --timeout=3500", P("app"), "queue.log")),
@@ -582,9 +601,10 @@ namespace SisPanel
             }
             if (!up)
                 throw new Exception("قاعدة البيانات لم تبدأ. " + Tail(ReadLog("mariadb.log"), 3));
-            var c = Run(P(@"mariadb\bin\mariadb.exe"), "--user=root --host=127.0.0.1 --port=" + DbPort +
-                " -e \"CREATE DATABASE IF NOT EXISTS sis CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci\"", Root, 30000);
+            string rootPwd = WorkingRootPassword();
+            var c = RootSql(rootPwd, "CREATE DATABASE IF NOT EXISTS sis CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
             if (c.Code != 0) throw new Exception("تعذّر إنشاء قاعدة البيانات sis: " + Tail(c.Output, 3));
+            bool maint = EnsureMaintAccount(rootPwd);
 
             string env = P(@"app\.env");
             if (!File.Exists(env))
@@ -603,18 +623,21 @@ namespace SisPanel
                 // run and the system does not start; after an update from the
                 // panel this sends it back to the previous version.
                 Artisan("config:clear", 120000, false);
-                var b = RunArtisan("backup:run --before-update", 1800000);
+                var b = RunArtisan("backup:run --before-update", 1800000, true);
                 if (b.Code != 0)
                     throw new Exception("تعذّرت النسخة الاحتياطية قبل التحديث، فلم يُطبَّق التحديث ولم يبدأ النظام. تحقّق من مجلد النسخ ومساحة القرص ثم أعد التشغيل. " + Tail(b.Output, 3));
                 if (b.Output.Contains("Backup created")) Log("حُفظت نسخة احتياطية قبل التحديث في " + BackupDir);
             }
             Log("تحديث جداول قاعدة البيانات...");
-            Artisan("migrate --force", 900000, true);
+            string onMaint = maint ? " --database=maintenance" : "";
+            Artisan("migrate --force" + onMaint, 900000, true, true);
+            if (maint) EnsureAppAccount(rootPwd);
             if (!File.Exists(Path.Combine(data, ".seeded")))
             {
                 Log("إضافة البيانات الأولية...");
-                if (Artisan("db:seed --force", 900000, false)) File.WriteAllText(Path.Combine(data, ".seeded"), "seeded");
+                if (Artisan("db:seed --force" + onMaint, 900000, false, true)) File.WriteAllText(Path.Combine(data, ".seeded"), "seeded");
             }
+            if (rootPwd.Length == 0 && EnvValue("DB_USERNAME") == AppUser) SetRootPassword();
             if (!Directory.Exists(P(@"app\public\storage"))) Artisan("storage:link", 60000, false);
             Artisan("optimize", 300000, false);
 
@@ -642,6 +665,183 @@ namespace SisPanel
 
         // The settings and the clinic certificate, so a reinstall can put
         // them back and devices keep trusting it (BackupDir\settings).
+        // ---- G6a (B-13, FR-AUD-03): three database accounts -----------------
+        // sis_app (the web and the queue): rows only, per table, audit_logs
+        // append-only, granted by `sis:db-grants`. sis_maint (migrations,
+        // backups, restores, the scheduler): everything on `sis`, nothing
+        // else. root: emergencies, with a random password. The passwords of
+        // root and sis_maint are kept in data\sis-accounts.dat, encrypted with
+        // DPAPI for this computer, and reach only the processes that need them.
+        // A conversion step that fails leaves the system on what it used
+        // before, says why in the log, and does not stop it (G6_READINESS §6).
+        const string AppUser = "sis_app", MaintUser = "sis_maint";
+        public string AccountsFile { get { return Path.Combine(P("data"), "sis-accounts.dat"); } }
+        Dictionary<string, string> dbAccounts;
+        bool maintReady; // sis_maint exists with the stored password (this start)
+
+        static string NewSecret()
+        {
+            var bytes = new byte[24];
+            using (var rng = RandomNumberGenerator.Create()) rng.GetBytes(bytes);
+            return new string(Convert.ToBase64String(bytes).Where(char.IsLetterOrDigit).ToArray());
+        }
+
+        Dictionary<string, string> Accounts()
+        {
+            if (dbAccounts != null) return dbAccounts;
+            dbAccounts = new Dictionary<string, string>();
+            try
+            {
+                if (File.Exists(AccountsFile))
+                {
+                    var plain = ProtectedData.Unprotect(File.ReadAllBytes(AccountsFile), null, DataProtectionScope.LocalMachine);
+                    dbAccounts = new JavaScriptSerializer().Deserialize<Dictionary<string, string>>(Encoding.UTF8.GetString(plain));
+                }
+            }
+            catch (Exception ex) { Log("تنبيه: تعذّرت قراءة ملف حسابات قاعدة البيانات: " + ex.Message); }
+            return dbAccounts;
+        }
+
+        // Written before the password it holds is put to use, and read back.
+        bool SaveAccounts(Dictionary<string, string> a)
+        {
+            try
+            {
+                var blob = ProtectedData.Protect(Encoding.UTF8.GetBytes(new JavaScriptSerializer().Serialize(a)), null, DataProtectionScope.LocalMachine);
+                string tmp = AccountsFile + ".tmp";
+                File.WriteAllBytes(tmp, blob);
+                var back = new JavaScriptSerializer().Deserialize<Dictionary<string, string>>(
+                    Encoding.UTF8.GetString(ProtectedData.Unprotect(File.ReadAllBytes(tmp), null, DataProtectionScope.LocalMachine)));
+                if (a.Any(kv => !back.ContainsKey(kv.Key) || back[kv.Key] != kv.Value)) throw new Exception("القراءة لا تطابق ما كُتب");
+                if (File.Exists(AccountsFile)) File.Delete(AccountsFile);
+                File.Move(tmp, AccountsFile);
+                dbAccounts = a;
+                return true;
+            }
+            catch (Exception ex) { Log("تنبيه: تعذّر حفظ ملف حسابات قاعدة البيانات: " + ex.Message); return false; }
+        }
+
+        string StoredRootPassword()
+        {
+            string v;
+            return Accounts().TryGetValue("root", out v) ? v : "";
+        }
+
+        static Dictionary<string, string> RootEnv(string pwd)
+        {
+            return new Dictionary<string, string> { { "MYSQL_PWD", pwd ?? "" } };
+        }
+
+        // For the maintenance commands and the scheduler; null until sis_maint exists.
+        public Dictionary<string, string> MaintEnv()
+        {
+            string v;
+            if (!maintReady || !Accounts().TryGetValue("maint", out v) || string.IsNullOrEmpty(v)) return null;
+            return new Dictionary<string, string> { { "DB_MAINT_USERNAME", MaintUser }, { "DB_MAINT_PASSWORD", v } };
+        }
+
+        Result RootSql(string pwd, string sql)
+        {
+            return Run(P(@"mariadb\bin\mariadb.exe"), "--user=root --host=127.0.0.1 --port=" + DbPort + " -N -e \"" + sql + "\"", Root, 60000, RootEnv(pwd));
+        }
+
+        // The stored password first, then none (an installation from before G6a).
+        string WorkingRootPassword()
+        {
+            string stored = StoredRootPassword();
+            if (stored.Length > 0 && RootSql(stored, "SELECT 1").Code == 0) return stored;
+            if (RootSql("", "SELECT 1").Code == 0) return "";
+            throw new Exception("تعذّر الدخول إلى قاعدة البيانات بحساب root. راجع وثيقة الطوارئ (docs/TESTING_DATABASES.md، G6a).");
+        }
+
+        bool EnsureMaintAccount(string rootPwd)
+        {
+            try
+            {
+                var a = new Dictionary<string, string>(Accounts());
+                string pwd;
+                if (!a.TryGetValue("maint", out pwd) || string.IsNullOrEmpty(pwd))
+                {
+                    a["maint"] = pwd = NewSecret();
+                    if (!SaveAccounts(a)) return false;
+                }
+                var r = RootSql(rootPwd,
+                    "CREATE USER IF NOT EXISTS '" + MaintUser + "'@'localhost' IDENTIFIED BY '" + pwd + "'; " +
+                    "ALTER USER '" + MaintUser + "'@'localhost' IDENTIFIED BY '" + pwd + "'; " +
+                    "GRANT ALL PRIVILEGES ON sis.* TO '" + MaintUser + "'@'localhost' WITH GRANT OPTION;");
+                if (r.Code != 0) throw new Exception(Tail(r.Output, 2));
+                return maintReady = true;
+            }
+            catch (Exception ex)
+            {
+                Log("تنبيه: تعذّر إعداد حساب الصيانة، فيبقى النظام على حسابه السابق: " + ex.Message);
+                return maintReady = false;
+            }
+        }
+
+        // After the migrations: the app account, its grants, then .env.
+        void EnsureAppAccount(string rootPwd)
+        {
+            try
+            {
+                string env = P(@"app\.env");
+                string pwd = EnvValue("DB_USERNAME") == AppUser ? EnvValue("DB_PASSWORD") : "";
+                if (pwd.Length == 0) pwd = NewSecret();
+                var r = RootSql(rootPwd,
+                    "CREATE USER IF NOT EXISTS '" + AppUser + "'@'localhost' IDENTIFIED BY '" + pwd + "'; " +
+                    "ALTER USER '" + AppUser + "'@'localhost' IDENTIFIED BY '" + pwd + "';");
+                if (r.Code != 0) throw new Exception(Tail(r.Output, 2));
+                var g = RunArtisan("sis:db-grants --user=" + AppUser + " --host=localhost", 300000, true);
+                if (g.Code != 0) throw new Exception(Tail(g.Output, 2));
+                if (EnvValue("DB_USERNAME") != AppUser) Log("تحويل التطبيق إلى حساب قاعدة بيانات بلا صلاحيات إدارية (" + AppUser + ").");
+                SetEnvValue(env, "DB_USERNAME", AppUser);
+                SetEnvValue(env, "DB_PASSWORD", pwd);
+            }
+            catch (Exception ex)
+            {
+                Log("تنبيه: تعذّر نقل التطبيق إلى حسابه المحدود، فيبقى على حسابه السابق: " + ex.Message);
+            }
+        }
+
+        // Only once the app no longer uses root (else it would lock itself out).
+        void SetRootPassword()
+        {
+            try
+            {
+                var a = new Dictionary<string, string>(Accounts());
+                string pwd = NewSecret();
+                a["root"] = pwd;
+                if (!SaveAccounts(a)) return;
+                var hosts = RootSql("", "SELECT CONCAT(QUOTE(user), '@', QUOTE(host)) FROM mysql.user WHERE user = 'root'");
+                if (hosts.Code != 0) throw new Exception(Tail(hosts.Output, 2));
+                var users = hosts.Output.Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0).ToList();
+                var r = RootSql("", string.Join(" ", users.Select(u => "ALTER USER " + u.Replace("\"", "") + " IDENTIFIED BY '" + pwd + "';")));
+                if (r.Code != 0) throw new Exception(Tail(r.Output, 2));
+                if (RootSql(pwd, "SELECT 1").Code != 0) throw new Exception("كلمة المرور الجديدة لا تعمل");
+                Log("حُدّدت كلمة مرور عشوائية لحساب root، محفوظة مشفرة على هذا الجهاز.");
+            }
+            catch (Exception ex) { Log("تنبيه: تعذّر تحديد كلمة مرور root: " + ex.Message); }
+        }
+
+        string EnvValue(string key)
+        {
+            try
+            {
+                foreach (var line in File.ReadAllLines(P(@"app\.env")))
+                    if (line.StartsWith(key + "=")) return line.Substring(key.Length + 1).Trim().Trim('"');
+            }
+            catch { }
+            return "";
+        }
+
+        static void SetEnvValue(string path, string key, string value)
+        {
+            var lines = File.ReadAllLines(path).ToList();
+            int i = lines.FindIndex(l => l.StartsWith(key + "="));
+            if (i >= 0) lines[i] = key + "=" + value; else lines.Add(key + "=" + value);
+            File.WriteAllLines(path, lines);
+        }
+
         void SaveSettingsCopy()
         {
             try
@@ -650,6 +850,8 @@ namespace SisPanel
                 Directory.CreateDirectory(dest);
                 File.Copy(P(@"app\.env"), Path.Combine(dest, ".env"), true);
                 if (File.Exists(P("config.txt"))) File.Copy(P("config.txt"), Path.Combine(dest, "config.txt"), true);
+                // readable only on this computer (DPAPI): for a reinstall here
+                if (File.Exists(AccountsFile)) File.Copy(AccountsFile, Path.Combine(dest, Path.GetFileName(AccountsFile)), true);
                 CopyDir(P("caddy-data"), Path.Combine(dest, "caddy-data"));
             }
             catch (Exception ex) { Log("تنبيه: تعذّر حفظ نسخة من الإعدادات: " + ex.Message); }
@@ -666,7 +868,7 @@ namespace SisPanel
         // "نسخة احتياطية الآن": the database and uploaded files, now.
         public bool BackupNow(out string message)
         {
-            var r = RunArtisan("backup:run --force", 1800000);
+            var r = RunArtisan("backup:run --force", 1800000, true);
             bool ok = r.Code == 0;
             message = ok ? "حُفظت نسخة احتياطية في " + BackupDir : "تعذّرت النسخة الاحتياطية: " + Tail(r.Output, 3);
             Log(message);
@@ -728,7 +930,7 @@ namespace SisPanel
                 args += " --merge";
                 if (tables != null && tables.Count > 0) args += " --tables=" + string.Join(",", tables.ToArray());
             }
-            var r = RunArtisan(args, 3600000);
+            var r = RunArtisan(args, 3600000, true);
             bool ok = r.Code == 0;
             if (merge)
                 message = ok ? "أُضيفت البيانات الناقصة من " + Path.GetFileName(file) + " وبقيت البيانات الحالية كما هي. " + Tail(r.Output, 1)
@@ -799,14 +1001,26 @@ namespace SisPanel
 
         Result RunArtisan(string args, int timeoutMs)
         {
-            var r = Run(P(@"php\php.exe"), "artisan " + args, P("app"), timeoutMs);
+            return RunArtisan(args, timeoutMs, false);
+        }
+
+        // maint: run on the maintenance account (G6a): migrations, seeding,
+        // grants, backups and restores, never the web or the queue.
+        Result RunArtisan(string args, int timeoutMs, bool maint)
+        {
+            var r = Run(P(@"php\php.exe"), "artisan " + args, P("app"), timeoutMs, maint ? MaintEnv() : null);
             AppendTo(Path.Combine(LogDir, "artisan.log"), DateTime.Now.ToString("s") + " artisan " + args + " (" + r.Code + ")" + Environment.NewLine + r.Output);
             return r;
         }
 
         bool Artisan(string args, int timeoutMs, bool required)
         {
-            var r = RunArtisan(args, timeoutMs);
+            return Artisan(args, timeoutMs, required, false);
+        }
+
+        bool Artisan(string args, int timeoutMs, bool required, bool maint)
+        {
+            var r = RunArtisan(args, timeoutMs, maint);
             if (r.Code != 0)
             {
                 if (required) throw new Exception("فشل أمر " + args + ": " + Tail(r.Output, 3));
@@ -920,7 +1134,7 @@ namespace SisPanel
 
             if (found.Any(f => f.Item2 == "mariadbd.exe" || f.Item2 == "mysqld.exe"))
             {
-                Run(P(@"mariadb\bin\mariadb-admin.exe"), "--user=root --host=127.0.0.1 --port=" + DbPort + " shutdown", Root, 30000);
+                Run(P(@"mariadb\bin\mariadb-admin.exe"), "--user=root --host=127.0.0.1 --port=" + DbPort + " shutdown", Root, 30000, RootEnv(StoredRootPassword()));
                 for (int i = 0; i < 30; i++)
                 {
                     if (!FindOwn(tunnel).Any(f => f.Item2 == "mariadbd.exe" || f.Item2 == "mysqld.exe")) break;

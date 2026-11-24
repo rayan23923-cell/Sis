@@ -19,6 +19,9 @@ if [ ! -f .env ]; then
 fi
 # Settings added after the first install (an existing value is never changed).
 grep -q '^PAYMENTS_SANDBOX=' .env || printf '\nPAYMENTS_SANDBOX=true\n' >> .env
+# G6a (B-13): the maintenance account (migrations, grants, backups, scheduler), separate from the application's.
+grep -q '^DB_MAINT_USERNAME=' .env || printf '\nDB_MAINT_USERNAME=sis_maint\n' >> .env
+grep -q '^DB_MAINT_PASSWORD=.' .env || { sed -i '/^DB_MAINT_PASSWORD=$/d' .env; (umask 077; printf 'DB_MAINT_PASSWORD=%s\n' "$(rand 32)" >> .env); }
 # The apps and the offline server package (uploaded by their workflows); the containers read it as another user.
 mkdir -p public/downloads
 chmod 755 public public/downloads
@@ -41,6 +44,15 @@ fi
 sudo docker rm -f sis-web >/dev/null 2>&1 || true
 
 compose build --pull
+# G6a: the maintenance account exists (and has its current password) before the app migrates with it.
+compose up -d --wait db
+db_name=$(sed -n 's/^DB_DATABASE=//p' .env)
+maint_user=$(sed -n 's/^DB_MAINT_USERNAME=//p' .env)
+maint_pw=$(sed -n 's/^DB_MAINT_PASSWORD=//p' .env)
+printf "CREATE USER IF NOT EXISTS '%s'@'%%' IDENTIFIED BY '%s';\nALTER USER '%s'@'%%' IDENTIFIED BY '%s';\nGRANT ALL PRIVILEGES ON \`%s\`.* TO '%s'@'%%' WITH GRANT OPTION;\n" \
+    "$maint_user" "$maint_pw" "$maint_user" "$maint_pw" "$db_name" "$maint_user" \
+    | sudo docker exec -i sis-db sh -c 'exec mariadb -uroot -p"$MARIADB_ROOT_PASSWORD"' \
+    || { echo "Could not set up the maintenance database account; stopping before the update." >&2; exit 1; }
 compose up -d --remove-orphans
 
 echo "Waiting for the app to finish migrating..."

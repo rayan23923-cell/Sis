@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\UsesMaintenanceAccount;
 use App\Services\DatabaseBackupService;
 use Illuminate\Console\Command;
 use Illuminate\Database\Migrations\Migrator;
@@ -16,11 +17,19 @@ use Illuminate\Support\Facades\Cache;
  */
 class RunDatabaseBackup extends Command
 {
+    use UsesMaintenanceAccount;
+
     protected $signature = 'backup:run {--force : Back up now} {--before-update : Back up only if there are pending migrations}';
 
     protected $description = 'Create a backup of the database and uploaded files (daily, before an update, or now).';
 
+    /** G6a: on the maintenance account, the one that can see (and dump) the triggers. */
     public function handle(DatabaseBackupService $backups, Migrator $migrator): int
+    {
+        return $this->onMaintenance(fn () => $this->work($backups, $migrator));
+    }
+
+    private function work(DatabaseBackupService $backups, Migrator $migrator): int
     {
         if ($this->option('before-update')) {
             if (! $this->hasPendingMigrations($migrator)) {

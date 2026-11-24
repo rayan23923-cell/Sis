@@ -47,7 +47,7 @@ jobs:
           & "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe" /nologo /target:winexe /codepage:65001 /optimize+ `
             /out:Sis.exe /win32icon:icon.ico /win32manifest:app.manifest `
             /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Management.dll /r:System.Core.dll `
-            /r:System.Web.Extensions.dll /r:System.IO.Compression.dll /r:System.IO.Compression.FileSystem.dll Sis.cs
+            /r:System.Web.Extensions.dll /r:System.IO.Compression.dll /r:System.IO.Compression.FileSystem.dll /r:System.Security.dll Sis.cs
           if ($LASTEXITCODE -ne 0) { throw 'Compile failed.' }
       - uses: actions/upload-artifact@v4
         with:
@@ -214,8 +214,23 @@ jobs:
             Write-Host '== processes'; Get-Process php*,caddy,coredns,mariadbd -ErrorAction SilentlyContinue | Format-Table Name,Id,Path | Out-String | Write-Host
             throw 'The offline server did not serve the login page.'
           }
-          $admin = & "$root\mariadb\bin\mariadb.exe" --user=root --host=127.0.0.1 --port=3309 -N -e "select email from sis.users where email='admin@sis.local'"
+          # G6a (B-13): the app runs on sis_app, which cannot change the schema, the triggers or the audit trail; root has a password.
+          $mariadb = "$root\mariadb\bin\mariadb.exe"
+          $envLines = Get-Content "$root\app\.env"
+          $appUser = ($envLines | Where-Object { $_ -match '^DB_USERNAME=' }) -replace '^DB_USERNAME=', ''
+          $env:MYSQL_PWD = ($envLines | Where-Object { $_ -match '^DB_PASSWORD=' }) -replace '^DB_PASSWORD=', ''
+          if ($appUser -ne 'sis_app') { throw "The app still uses the database account '$appUser'." }
+          $admin = & $mariadb --user=sis_app --host=127.0.0.1 --port=3309 -N -e "select email from sis.users where email='admin@sis.local'"
           if ($admin -ne 'admin@sis.local') { throw 'The admin account was not created.' }
+          foreach ($sql in 'DROP TABLE sis.users', 'UPDATE sis.audit_logs SET action = action', 'DELETE FROM sis.audit_logs', 'DROP TRIGGER sis.final_results_locked_update') {
+            & $mariadb --user=sis_app --host=127.0.0.1 --port=3309 -e $sql
+            if ($LASTEXITCODE -eq 0) { throw "sis_app was allowed: $sql" }
+          }
+          $env:MYSQL_PWD = ''
+          & $mariadb --user=root --host=127.0.0.1 --port=3309 -e 'select 1'
+          if ($LASTEXITCODE -eq 0) { throw 'root still has no password.' }
+          Remove-Item Env:MYSQL_PWD -ErrorAction SilentlyContinue
+          Write-Host 'G6a: the app runs on sis_app; root has a password.'
 
           Write-Host 'DNS:'
           $dns = Resolve-DnsName -Name sis.lan -Server 127.0.0.1 -DnsOnly -Type A
@@ -237,9 +252,15 @@ jobs:
           $apps = curl.exe -s -o NUL -w '%{http_code}' --max-time 30 "http://${ip}:8080/apps/"
           Write-Host "/apps/ -> $apps"
 
-          Write-Host 'Backup now (the panel button runs this)'
+          Write-Host 'A backup on the application account is refused: it cannot see the triggers (G6a)'
+          & "$root\php\php.exe" -c "$root\php\php.ini" "$root\app\artisan" backup:run --force
+          if ($LASTEXITCODE -eq 0) { throw 'backup:run on sis_app made a backup without the triggers.' }
+          Write-Host 'Backup now on the maintenance account (the panel button runs this)'
+          $accounts = powershell.exe -NoProfile -Command "Add-Type -AssemblyName System.Security; [Text.Encoding]::UTF8.GetString([Security.Cryptography.ProtectedData]::Unprotect([IO.File]::ReadAllBytes('$root\data\sis-accounts.dat'), `$null, 'LocalMachine'))" | ConvertFrom-Json
+          $env:DB_MAINT_USERNAME = 'sis_maint'; $env:DB_MAINT_PASSWORD = $accounts.maint
           & "$root\php\php.exe" -c "$root\php\php.ini" "$root\app\artisan" backup:run --force
           if ($LASTEXITCODE -ne 0) { throw 'backup:run failed.' }
+          Remove-Item Env:DB_MAINT_USERNAME, Env:DB_MAINT_PASSWORD
           if (-not (Get-ChildItem C:\SisBackups\*.zip -ErrorAction SilentlyContinue)) { throw 'No backup zip was made in C:\SisBackups.' }
 
           Write-Host 'Self-healing: kill the web server, the panel must restart it'
@@ -316,6 +337,45 @@ jobs:
           Write-Host 'With the folder fixed: backed up before the update, then migrated.'
           Start-Process -FilePath "$root\Sis.exe" -ArgumentList '--stop' -Wait
           # curl's "could not connect" above is the expected outcome, not this step's result
+          $global:LASTEXITCODE = 0
+
+      - name: An installation on root is moved to its own accounts (G6a)
+        shell: pwsh
+        run: |
+          $root = 'C:\SisOffline'
+          $mariadb = "$root\mariadb\bin\mariadb.exe"
+          $env:OFFLINE_ACTIVATION = 'false'
+          function Wait-Site { for ($i = 0; $i -lt 60; $i++) { Start-Sleep -Seconds 5; if ((curl.exe -s -o NUL -w '%{http_code}' --max-time 10 http://127.0.0.1:8080/login) -eq '200') { return } }; Get-Content "$root\app\storage\logs\panel.log" -Encoding UTF8 -Tail 30; throw 'The site did not come up.' }
+          $accounts = powershell.exe -NoProfile -Command "Add-Type -AssemblyName System.Security; [Text.Encoding]::UTF8.GetString([Security.Cryptography.ProtectedData]::Unprotect([IO.File]::ReadAllBytes('$root\data\sis-accounts.dat'), `$null, 'LocalMachine'))" | ConvertFrom-Json
+
+          # Back to how an installation from before G6a looks: the app on root, root without a password, no other accounts.
+          Start-Process -FilePath "$root\Sis.exe" -ArgumentList '--headless' -WorkingDirectory $root
+          Wait-Site
+          $env:MYSQL_PWD = $accounts.root
+          & $mariadb --user=root --host=127.0.0.1 --port=3309 -e "DROP USER IF EXISTS 'sis_app'@'localhost', 'sis_maint'@'localhost'; ALTER USER 'root'@'localhost' IDENTIFIED BY '';"
+          if ($LASTEXITCODE -ne 0) { throw 'Could not put the old setup back.' }
+          Remove-Item Env:MYSQL_PWD -ErrorAction SilentlyContinue
+          Remove-Item "$root\data\sis-accounts.dat"
+          (Get-Content "$root\app\.env") -replace '^DB_USERNAME=.*$', 'DB_USERNAME=root' -replace '^DB_PASSWORD=.*$', 'DB_PASSWORD=' | Set-Content "$root\app\.env"
+          Start-Process -FilePath "$root\Sis.exe" -ArgumentList '--stop' -Wait
+
+          # The next start converts it.
+          Start-Process -FilePath "$root\Sis.exe" -ArgumentList '--headless' -WorkingDirectory $root
+          Wait-Site
+          Get-Content "$root\app\storage\logs\panel.log" -Encoding UTF8 -Tail 25
+          $envLines = Get-Content "$root\app\.env"
+          if (-not ($envLines -contains 'DB_USERNAME=sis_app')) { throw 'The app was not moved to sis_app.' }
+          $env:MYSQL_PWD = ''
+          & $mariadb --user=root --host=127.0.0.1 --port=3309 -e 'select 1'
+          if ($LASTEXITCODE -eq 0) { throw 'root still has no password after the conversion.' }
+          $env:MYSQL_PWD = ($envLines | Where-Object { $_ -match '^DB_PASSWORD=' }) -replace '^DB_PASSWORD=', ''
+          & $mariadb --user=sis_app --host=127.0.0.1 --port=3309 -e 'DROP TABLE sis.users'
+          if ($LASTEXITCODE -eq 0) { throw 'sis_app was allowed to drop a table.' }
+          $locked = & $mariadb --user=sis_app --host=127.0.0.1 --port=3309 -N -e 'select count(*) from sis.users'
+          if ([int]$locked -lt 1) { throw 'sis_app cannot read the data.' }
+          Remove-Item Env:MYSQL_PWD -ErrorAction SilentlyContinue
+          Write-Host 'Converted: the app on sis_app, root with a password, the data in place.'
+          Start-Process -FilePath "$root\Sis.exe" -ArgumentList '--stop' -Wait
           $global:LASTEXITCODE = 0
 
   publish:

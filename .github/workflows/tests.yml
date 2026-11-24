@@ -60,6 +60,10 @@ jobs:
       SIS_RESTORE_DB_DATABASE: sis_restore
       SIS_RESTORE_DB_USERNAME: sis_restorer
       SIS_RESTORE_DB_PASSWORD: restorer-ci-only
+      # G6a (B-13): an application account with no grants of its own; the tests' account (playing the maintenance
+      # account) gives it its per-table grants with sis:db-grants
+      SIS_APP_DB_USERNAME: sis_app_test
+      SIS_APP_DB_PASSWORD: app-ci-only
     steps:
       - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2
@@ -80,6 +84,12 @@ jobs:
           # the runner's client (11.x) asks for TLS by default; the 10.11 test server has none (no secrets cross)
           printf '[client]\nskip-ssl\n' > ~/.my.cnf
           mariadb -h127.0.0.1 -uroot -proot-ci-only -e "CREATE DATABASE sis_restore; CREATE USER 'sis_restorer'@'%' IDENTIFIED BY 'restorer-ci-only'; GRANT ALL ON sis_restore.* TO 'sis_restorer'@'%';"
+          # the image grants MARIADB_USER on the escaped name (`sis\_test`), a separate entry that takes precedence
+          # over a plain `sis_test` one, so GRANT OPTION goes on that same entry
+          mariadb -h127.0.0.1 -uroot -proot-ci-only <<'SQL'
+          CREATE USER 'sis_app_test'@'%' IDENTIFIED BY 'app-ci-only';
+          GRANT ALL ON `sis\_test`.* TO 'sis'@'%' WITH GRANT OPTION;
+          SQL
       - name: Suite on MariaDB
         run: php vendor/bin/phpunit
       - name: MariaDB-only tests must run here, not skip

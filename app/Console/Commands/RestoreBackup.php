@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\UsesMaintenanceAccount;
 use App\Services\DatabaseBackupService;
 use Illuminate\Console\Command;
 
@@ -18,11 +19,19 @@ use Illuminate\Console\Command;
  */
 class RestoreBackup extends Command
 {
+    use UsesMaintenanceAccount;
+
     protected $signature = 'backup:restore {file : A backup file name in the backups folder, or a full path} {--force : Do not ask for confirmation} {--merge : Only add what is missing, keeping the current data} {--tables= : With --merge, comma-separated tables to take (default: all)}';
 
     protected $description = 'Replace the database and uploaded files with a backup, or merge the missing rows in.';
 
+    /** G6a: on the maintenance account, the one that can see (and dump) the triggers. */
     public function handle(DatabaseBackupService $backups): int
+    {
+        return $this->onMaintenance(fn () => $this->work($backups));
+    }
+
+    private function work(DatabaseBackupService $backups): int
     {
         $file = $this->argument('file');
         $path = is_file($file) ? realpath($file) : $backups->fullPath($file);
@@ -57,6 +66,9 @@ class RestoreBackup extends Command
             return self::FAILURE;
         }
         $this->call('migrate', ['--force' => true]);
+        if (config('database.connections.maintenance')) {
+            $this->call('sis:db-grants'); // G6a: tables the backup brought back get the application's grants
+        }
         $this->call('cache:clear');
 
         $this->info("Restored: {$path}");

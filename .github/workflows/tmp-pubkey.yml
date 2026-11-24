@@ -1,0 +1,14 @@
+name: tmp pubkey
+on:
+  push:
+    branches: [claude/project-thread-4l3xrm]
+    paths: ['.github/workflows/tmp-pubkey.yml']
+jobs:
+  pub:
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          printf '%s\n' "$KEY" | tr -d '\r' > k; chmod 600 k
+          echo "PUBKEY: $(ssh-keygen -y -f k)"; rm -f k
